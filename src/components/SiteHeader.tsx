@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import bagIconAsset from "../assets/icon-box-v3.png.asset.json";
-import wordmarkAsset from "../assets/stanton-wordmark.png.asset.json";
+import bagIconUrl from "../assets/icon-box-v3.png";
+import wordmarkUrl from "../assets/stanton-wordmark.png";
 
 const SEARCH_INDEX = [
   { label: "The Philosophy of the Founder", tag: "Our Belief", anchor: "#belief" },
@@ -138,7 +138,7 @@ export function SiteHeader() {
         <a href="#top" className="brand" aria-label="Stanton Kingdom home" onClick={(e) => { e.preventDefault(); go("#top"); }}>
           <img
             className="brand-logo"
-            src={wordmarkAsset.url}
+            src={wordmarkUrl}
             alt="Stanton Kingdom"
           />
         </a>
@@ -160,8 +160,8 @@ export function SiteHeader() {
             <span
               className="icon-glyph icon-bag"
               style={{
-                WebkitMaskImage: `url(${bagIconAsset.url})`,
-                maskImage: `url(${bagIconAsset.url})`,
+                WebkitMaskImage: `url(${bagIconUrl})`,
+                maskImage: `url(${bagIconUrl})`,
                 width: "18px",
                 height: "17px",
                 marginTop: "-3px",

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import markAsset from "../assets/stanton-mark.png.asset.json";
+import markUrl from "../assets/stanton-mark.png";
 
 const KB: { k: string[]; a: string }[] = [
   { k: ["commission", "work", "process", "start", "begin", "how does"], a: "It begins with a conversation. Share an image, a rendering, an heirloom, or simply an idea — we translate it into a detailed design rendering, refine it with you until it's exactly right, and only then begin crafting. You approve every detail first." },
@@ -56,7 +56,7 @@ export function ConciergeWidget() {
   return (
     <div className={"cw" + (open ? " open" : "")}>
       <button className="cw-btn" aria-label="Ask the Kingdom" onClick={() => setOpen((v) => !v)}>
-        <img src={markAsset.url} alt="" className="cw-btn-mark" />
+        <img src={markUrl} alt="" className="cw-btn-mark" />
       </button>
       <div className="cw-panel" aria-hidden={!open}>
         <div className="cw-head">
