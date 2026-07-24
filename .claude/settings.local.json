@@ -3,7 +3,16 @@
     "allow": [
       "Bash(npm -v)",
       "PowerShell(node -v)",
-      "PowerShell(npm -v)"
+      "PowerShell(npm -v)",
+      "Bash(gh auth *)",
+      "PowerShell(Get-Command gh -ErrorAction SilentlyContinue)",
+      "Bash(ls -la \"C:\\\\Users\\\\DAVIDC~1.STA\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-David-C--Stanton-Stanton-Kingdom\\\\33dec6c0-c85b-4aad-829c-23b2f0f0a9b9\\\\scratchpad\" 2>/dev/null; echo \"---\"; find \"C:\\\\Users\\\\DAVIDC~1.STA\\\\AppData\\\\Local\\\\Temp\\\\claude\" -iname \"*.png\" -newer \"C:\\\\Users\\\\David C. Stanton\\\\Stanton Kingdom\\\\package.json\" 2>/dev/null | head -50)",
+      "Bash(find \"C:\\\\Users\\\\DAVIDC~1.STA\\\\AppData\\\\Local\\\\Temp\" -iname \"*.png\" -mmin -30 2>/dev/null | head -50; echo \"---clipboard---\"; find \"C:\\\\Users\\\\David C. Stanton\" -iname \"*paste*\" -mmin -30 2>/dev/null | head -20)",
+      "Bash(xargs -I{} ls -la \"{}\")",
+      "Bash(cp \"C:\\\\Users\\\\David C. Stanton\\\\Downloads\\\\Screenshot_20260723_141706_ChatGPT.jpg\" \"src\\\\assets\\\\icon-bag-new.jpg\")",
+      "Bash(cp \"C:\\\\Users\\\\David C. Stanton\\\\Downloads\\\\1403584.png\" \"src\\\\assets\\\\icon-phone-new.png\")",
+      "Bash(cp \"/c/Users/David C. Stanton/Downloads/Screenshot_20260723_141706_ChatGPT.jpg\" \"src/assets/icon-bag-new.jpg\")",
+      "Bash(cp \"/c/Users/David C. Stanton/Downloads/1403584.png\" \"src/assets/icon-phone-new.png\")"
     ]
   }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import bagIconUrl from "../assets/icon-box-v3.png";
 import wordmarkUrl from "../assets/stanton-wordmark.png";
+import phoneIconUrl from "../assets/icon-phone-mask.png";
+import bagIconUrl from "../assets/icon-bag-mask.png";
 
 const SEARCH_INDEX = [
   { label: "The Philosophy of the Founder", tag: "Our Belief", anchor: "#belief" },
@@ -36,14 +37,23 @@ function IconSearch() {
   );
 }
 
-function IconBubble() {
+function IconPhone() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-      <circle cx="8.3" cy="12" r="1.4" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none" />
-      <circle cx="15.7" cy="12" r="1.4" fill="currentColor" stroke="none" />
-    </svg>
+    <span
+      className="icon-glyph icon-phone-glyph"
+      style={{ WebkitMaskImage: `url(${phoneIconUrl})`, maskImage: `url(${phoneIconUrl})` }}
+      aria-hidden="true"
+    />
+  );
+}
+
+function IconBag() {
+  return (
+    <span
+      className="icon-glyph"
+      style={{ WebkitMaskImage: `url(${bagIconUrl})`, maskImage: `url(${bagIconUrl})` }}
+      aria-hidden="true"
+    />
   );
 }
 
@@ -150,25 +160,14 @@ export function SiteHeader() {
             aria-expanded={contactOpen}
             onClick={() => setContactOpen((v) => !v)}
           >
-            <IconBubble />
+            <IconPhone />
           </button>
           <button
             className="icon-btn"
             aria-label="Bag (coming soon)"
             onClick={() => { /* wired to Shopify later */ }}
           >
-            <span
-              className="icon-glyph icon-bag"
-              style={{
-                WebkitMaskImage: `url(${bagIconUrl})`,
-                maskImage: `url(${bagIconUrl})`,
-                width: "18px",
-                height: "17px",
-                marginTop: "-3px",
-              }}
-              aria-hidden="true"
-            />
-
+            <IconBag />
           </button>
         </div>
       </nav>

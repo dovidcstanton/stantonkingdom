@@ -12,7 +12,6 @@ import { useEffect, type ReactNode } from "react";
 import appCssHref from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { SiteHeader } from "../components/SiteHeader";
-import { SiteFooter } from "../components/SiteFooter";
 import { ConciergeWidget } from "../components/ConciergeWidget";
 import { ScrollProgress } from "../components/ScrollProgress";
 
@@ -21,9 +20,18 @@ import { ScrollProgress } from "../components/ScrollProgress";
 // iframe cannot serve a stale copy of the stylesheet or same-URL assets.
 declare const __BUILD_ID__: string;
 const BUILD_ID = typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : String(Date.now());
-export const withVersion = (url: string) =>
-  `${url}${url.includes("?") ? "&" : "?"}v=${BUILD_ID}`;
+export const withVersion = (url: string, version: string = BUILD_ID) =>
+  `${url}${url.includes("?") ? "&" : "?"}v=${version}`;
 const appCss = withVersion(appCssHref);
+// BUILD_ID above is frozen once per dev-server process start (it's a plain
+// module-level const), so it does NOT change as files are edited during a
+// dev session — every reload kept refetching the exact same "?v=..." URL,
+// which browsers are free to serve from cache, showing stale CSS even after
+// real edits landed. In dev, recompute the version fresh on every request
+// instead so a reload always gets the current file. Production keeps the
+// stable per-build BUILD_ID, which is what you want for real caching.
+const getAppCssHref = () =>
+  import.meta.env.DEV ? withVersion(appCssHref, Date.now().toString(36)) : appCss;
 
 function NotFoundComponent() {
   return (
@@ -90,7 +98,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "build-id", content: BUILD_ID },
     ],
     links: [
-      { rel: "stylesheet", href: appCss },
+      { rel: "stylesheet", href: getAppCssHref() },
       {
         rel: "icon",
         href: "https://stantonkingdom.com/wp-content/uploads/2023/10/cropped-Favicon-270x270.webp",
@@ -99,7 +107,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400&family=Jost:wght@200;300;400;500&family=Pinyon+Script&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,400;1,9..144,500;1,9..144,600&family=Tangerine:wght@400;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600;1,700&family=Jost:wght@200;300;400;500&family=Pinyon+Script&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,400;1,9..144,500;1,9..144,600&family=Tangerine:wght@400;700&display=swap",
       },
     ],
   }),
@@ -131,7 +139,6 @@ function RootComponent() {
       <ScrollProgress />
       <SiteHeader />
       <Outlet />
-      <SiteFooter />
       <ConciergeWidget />
     </QueryClientProvider>
   );

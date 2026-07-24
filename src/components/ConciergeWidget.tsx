@@ -40,11 +40,23 @@ export function ConciergeWidget() {
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState("");
+  const [dismissed, setDismissed] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
   }, [msgs]);
+
+  // Mobile only: the FAB sits over the hero's bottom-anchored buttons until
+  // the page has scrolled a bit, so keep it out of the way until then.
+  // Desktop/tablet keep the button visible immediately, as before.
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 220);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const ask = (q: string) => {
     if (!q.trim()) return;
@@ -53,11 +65,22 @@ export function ConciergeWidget() {
     setText("");
   };
 
+  if (dismissed) return null;
+
   return (
-    <div className={"cw" + (open ? " open" : "")}>
+    <div className={"cw" + (open ? " open" : "") + (scrolled ? "" : " cw-prescroll")}>
       <button className="cw-btn" aria-label="Ask the Kingdom" onClick={() => setOpen((v) => !v)}>
         <img src={markUrl} alt="" className="cw-btn-mark" />
       </button>
+      {!open && (
+        <button
+          className="cw-dismiss"
+          aria-label="Hide concierge button"
+          onClick={(e) => { e.stopPropagation(); setDismissed(true); }}
+        >
+          ×
+        </button>
+      )}
       <div className="cw-panel" aria-hidden={!open}>
         <div className="cw-head">
           <div>

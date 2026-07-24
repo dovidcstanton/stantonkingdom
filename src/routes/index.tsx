@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Catalog, type CatalogSelection } from "@/components/sections/Catalog";
+import { SiteFooter } from "@/components/SiteFooter";
+import phoneIconUrl from "@/assets/icon-phone-mask.png";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -18,11 +20,20 @@ export const Route = createFileRoute("/")({
 
 const V_DIV_BG_NAVY_FILL_PAPER = { bg: "var(--paper)", fill: "var(--navy)" } as const;
 
-function VDivider({ bg, fill }: { bg: string; fill: string }) {
+function VDivider({ bg, fill, accent, className, flip }: { bg: string; fill: string; accent?: boolean; className?: string; flip?: boolean }) {
   return (
-    <div className="v-divider" style={{ background: bg }}>
+    <div className={"v-divider" + (className ? ` ${className}` : "")} style={{ background: bg }}>
+      {/* A 1-unit overscan beyond the viewBox on the flat edge and sides
+          absorbs sub-pixel antialiasing so no seam line of the container's
+          own background can peek through at the top/side edges. */}
       <svg viewBox="0 0 100 100" preserveAspectRatio="none">
-        <polygon points="0,0 100,0 50,100" fill={fill} />
+        <polygon
+          points={flip ? "-1,101 101,101 50,-1" : "-1,-1 101,-1 50,101"}
+          fill={fill}
+          stroke={accent ? "var(--gold)" : undefined}
+          strokeWidth={accent ? 1.5 : undefined}
+          vectorEffect={accent ? "non-scaling-stroke" : undefined}
+        />
       </svg>
     </div>
   );
@@ -197,6 +208,29 @@ function CollectionCard({
     if (!isActive) setOpenType(null);
   }, [isActive]);
 
+  // Own reveal state (rather than relying on the page-level IntersectionObserver
+  // to add an "in" class imperatively) — this card's className is recomputed by
+  // React whenever isActive/expanded change (e.g. on click), which would wipe an
+  // imperatively-added class on every interaction. Tracking it as state keeps it
+  // part of what React actually renders, so it survives re-renders.
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [revealed, setRevealed] = useState(false);
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => entries.forEach((e) => {
+        if (e.isIntersecting) {
+          setRevealed(true);
+          io.unobserve(e.target);
+        }
+      }),
+      { threshold: 0.12 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   const isToggleTarget = (target: EventTarget | null) => {
     return target instanceof Element && Boolean(target.closest(".col-photo,.col-title"));
   };
@@ -210,7 +244,8 @@ function CollectionCard({
 
   return (
     <div
-      className={"col-card reveal show" + (isActive ? " centered" : "") + (expanded && isActive ? " expanded" : "")}
+      ref={cardRef}
+      className={"col-card reveal show" + (revealed ? " in" : "") + (isActive ? " centered" : "") + (expanded && isActive ? " expanded" : "")}
       onClickCapture={handleToggleClick}
     >
       <button
@@ -549,19 +584,24 @@ function HomePage() {
     mobileStart: 24,
     mobileEnd: 52,
   } as const;
-  const REVEAL = { line2: 0.14, btn1: 0.33, btn2: 0.51 } as const;
-  const REVEAL_SPAN = 0.32;             // longer, overlapping fade-ins
+  // Stretched so the last reveal (btn2) finishes exactly at p=1 — the track
+  // used to release into Heritage ~17% late, after the buttons had already
+  // fully appeared, leaving a stretch of "dead" scroll with nothing changing.
+  const REVEAL = { line2: 0.17, btn1: 0.40, btn2: 0.61 } as const;
+  const REVEAL_SPAN = 0.39;             // longer, overlapping fade-ins
   const HANDOFF_START = 0.65;           // navy fade begins earlier
-  const PLAYED_KEY = "sk_hero_played";
-
 
   const heroTrackRef = useRef<HTMLDivElement>(null);
   const heroBgRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLElement>(null);
   const heroHandoffRef = useRef<HTMLDivElement>(null);
-  const heroPlayedRef = useRef<boolean>(false);
   const lastBgxRef = useRef<number>(-1);
 
+  // Two-way, scroll-linked hero: everything below is a pure function of the
+  // current scroll position, computed fresh on every scroll event in either
+  // direction. There is no "play once and freeze" state — scrolling back up
+  // simply runs the same choreography in reverse, exactly like scrolling down
+  // runs it forward. Nothing here ever moves the scroll position itself.
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -569,30 +609,17 @@ function HomePage() {
       ? { start: PAN.mobileStart, end: PAN.mobileEnd }
       : { start: PAN.desktopStart, end: PAN.desktopEnd };
 
-    // Always replay the intro on any fresh page load. Clear any prior latch.
-    try { sessionStorage.removeItem(PLAYED_KEY); } catch {}
-
-    // Latch the final frame immediately if reduced motion is on.
-    const latchFinal = () => {
+    if (reduced) {
       const { end } = getPanRange();
-      const bg = heroBgRef.current;
+      heroBgRef.current?.style.setProperty("--bgx", `${end}%`);
+      heroHandoffRef.current?.style.setProperty("--pan-p", "1");
       const hero = heroRef.current;
-      const track = heroTrackRef.current;
-      const handoff = heroHandoffRef.current;
-      if (bg) bg.style.setProperty("--bgx", `${end}%`);
-      if (handoff) handoff.style.setProperty("--pan-p", "1");
-      track?.classList.add("hero-played");
       if (hero) {
         hero.style.setProperty("--l2", "1");
         hero.style.setProperty("--b1", "1");
         hero.style.setProperty("--b2", "1");
-        hero.classList.add("hero-ready");
+        hero.classList.add("hero-btn1-ready", "hero-btn2-ready");
       }
-    };
-
-    if (reduced) {
-      heroPlayedRef.current = true;
-      latchFinal();
       return;
     }
 
@@ -604,7 +631,6 @@ function HomePage() {
 
     const tick = () => {
       raf = 0;
-      if (heroPlayedRef.current) return;
       const track = heroTrackRef.current;
       const hero = heroRef.current;
       if (!track || !hero) return;
@@ -624,7 +650,10 @@ function HomePage() {
       const handoff = Math.min(1, Math.max(0, (p - HANDOFF_START) / (1 - HANDOFF_START)));
       heroHandoffRef.current?.style.setProperty("--pan-p", String(easeInOutSine(handoff)));
 
-      // Reveals — overlapping windows, easeOutQuint settle
+      // Reveals — overlapping windows, easeOutQuint settle. Runs the same in
+      // both directions: scroll down and the text/buttons write themselves
+      // in; scroll back up and they erase themselves out, in sync with the
+      // image panning back.
       const span = REVEAL_SPAN;
       const l2 = Math.min(1, Math.max(0, (p - REVEAL.line2) / span));
       const b1 = Math.min(1, Math.max(0, (p - REVEAL.btn1) / span));
@@ -632,26 +661,95 @@ function HomePage() {
       hero.style.setProperty("--l2", String(easeOutQuint(l2)));
       hero.style.setProperty("--b1", String(easeOutQuint(b1)));
       hero.style.setProperty("--b2", String(easeOutQuint(b2)));
-      // Keep hero CTAs inert during the scroll choreography so a finger scroll
-      // cannot accidentally jump to #collections / #begin.
-      hero.classList.remove("hero-ready");
-
-      // Freeze-at-top: once fully played, latch and stop responding to scroll
-      if (p >= 0.999) {
-        const trackTop = rect.top + window.scrollY;
-        const transitionEnd = trackTop + total;
-        const overshoot = Math.max(0, window.scrollY - transitionEnd);
-        heroPlayedRef.current = true;
-        try { sessionStorage.setItem(PLAYED_KEY, "1"); } catch {}
-        latchFinal();
-        // Collapse the long pinned choreography into a normal static hero so
-        // returning upward never traps the user inside an already-played track.
-        window.scrollTo(window.scrollX, trackTop + overshoot);
-        requestAnimationFrame(() => window.scrollTo(window.scrollX, trackTop + overshoot));
-      }
+      // CTAs only clickable once basically fully revealed, either direction.
+      // Each button becomes clickable independently, based on its own
+      // reveal progress — Start Your Story (b1) lands first and should be
+      // clickable before Discover the Kingdom (b2) has even appeared.
+      hero.classList.toggle("hero-btn1-ready", b1 > 0.5);
+      hero.classList.toggle("hero-btn2-ready", b2 > 0.5);
     };
     const onScroll = () => {
-      if (raf || heroPlayedRef.current) return;
+      if (raf) return;
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  // ============ Heritage/Philosophy immersive duo (tunable) ============
+  // Pinned like the hero. Heritage slides in from the LEFT and settles, then
+  // — with no pause — continues on to exit further left while Philosophy of
+  // the Founder enters from the right (the "other side"), landing exactly
+  // where Heritage's trailing edge is at every instant so the two edges
+  // always meet with zero gap between them. Fully reversible scrolling up.
+  // More overall scroll distance than before — motion starts immediately
+  // (see the front-loaded easing below) but now takes a bit more scrolling
+  // to fully unfold, so it reads as smooth and deliberate rather than rushed.
+  const DUO_HOLD = "340vh";
+  const DUO_ENTER_END = 0.16;   // heritage finishes arriving — starts moving immediately, no blank stretch
+  const DUO_CROSS_SPAN = 0.4;   // heritage exits left / philosophy enters right, together
+  // Cross starts the instant enter ends — no hold, no gap.
+  const DUO_CROSS_START = DUO_ENTER_END;
+
+  const duoTrackRef = useRef<HTMLDivElement>(null);
+  const duoHeritageRef = useRef<HTMLElement>(null);
+  const duoPhilRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const heritage = duoHeritageRef.current;
+    const phil = duoPhilRef.current;
+    if (!heritage || !phil) return;
+
+    if (reduced) {
+      heritage.style.transform = "none";
+      phil.style.transform = "none";
+      return;
+    }
+
+    const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
+    // Strongly front-loaded — Heritage is substantially visible within the
+    // very first few percent of scroll, not just technically-moving. The
+    // cross phase uses the same curve (not easeInOutSine, which starts with
+    // near-zero velocity) so the instant Heritage finishes settling, the
+    // handoff to Philosophy is already visibly underway — no stretch of
+    // scrolling that looks like nothing is happening before motion kicks in.
+    const easeOutQuart = (t: number) => 1 - Math.pow(1 - t, 4);
+
+    let raf = 0;
+    const tick = () => {
+      raf = 0;
+      const track = duoTrackRef.current;
+      if (!track) return;
+      const rect = track.getBoundingClientRect();
+      const total = Math.max(1, track.offsetHeight - window.innerHeight);
+      const p = clamp01(-rect.top / total);
+
+      const enter = easeOutQuart(clamp01(p / DUO_ENTER_END));
+      const cross = easeOutQuart(clamp01((p - DUO_CROSS_START) / DUO_CROSS_SPAN));
+
+      // Heritage: -100% (off-screen left) -> 0% (centered) -> -100% (exits left)
+      const heritageX = -100 + 100 * enter - 100 * cross;
+      // Philosophy: 100% (off-screen right, untouched during Heritage's solo
+      // entrance) -> 0% (centered). During the cross phase this is always
+      // exactly heritageX + 100, so the two panels' touching edges coincide
+      // at every instant with zero gap — it just isn't tied to heritageX
+      // before the cross phase starts, or Philosophy would move prematurely.
+      const philX = 100 - 100 * cross;
+
+      heritage.style.transform = `translateX(${heritageX}%)`;
+      phil.style.transform = `translateX(${philX}%)`;
+      heritage.style.pointerEvents = heritageX <= -99 ? "none" : "auto";
+      phil.style.pointerEvents = philX >= 99 ? "none" : "auto";
+    };
+    const onScroll = () => {
+      if (raf) return;
       raf = requestAnimationFrame(tick);
     };
     tick();
@@ -699,56 +797,60 @@ function HomePage() {
 
       <VDivider bg="#f2eadb" fill="var(--navy)" />
 
-      {/* HERITAGE */}
-      <section id="heritage">
-        <div className="wrap her-stack">
-          <div className="her-head reveal">
-            <span className="eyebrow">Our Illustrious Heritage</span>
-            <h2 className="serif canela uni-h">A voyage amidst the <em>stones.</em></h2>
-          </div>
-          <div className="her-photo reveal">
-            <div className="her-photo-crop">
-              <img src="https://stantonkingdom.com/wp-content/uploads/2023/10/David-Stanton-Frame-2-768x1012.png" alt="David C. Stanton, Founder of Stanton Kingdom" loading="lazy" />
+      {/* HERITAGE + PHILOSOPHY — pinned immersive duo */}
+      <div className="duo-track" ref={duoTrackRef} style={{ ["--duo-hold" as any]: DUO_HOLD }}>
+        <div className="duo-pin">
+          <section id="heritage" className="duo-panel" ref={duoHeritageRef as any}>
+            <div className="wrap her-stack">
+              <div className="her-head reveal">
+                <span className="eyebrow">Our Heritage</span>
+                <h2 className="serif canela uni-h">A Voyage Amidst the <em>Stones.</em></h2>
+              </div>
+              <div className="her-grid">
+                <div className="her-photo reveal">
+                  <div className="her-photo-crop">
+                    <img src="https://stantonkingdom.com/wp-content/uploads/2023/10/David-Stanton-Frame-2-768x1012.png" alt="David C. Stanton, Founder of Stanton Kingdom" loading="lazy" />
+                  </div>
+                </div>
+                <div className="her-body">
+                  <p className="reveal">Stanton Kingdom was established by David C. Stanton, whose voyage amidst the stones commenced at the tender age of fifteen, apprenticing under the leadership of his esteemed brother, Doniel Stanton, a renowned gemologist and jewelry manufacturer throughout the United Kingdom.</p>
+                  <p className="reveal">Born and raised in England, David now resides in the United States with his beloved wife and four remarkable children.</p>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="her-body">
-            <p className="reveal">Stanton Kingdom was established by David C. Stanton, whose voyage amidst the stones commenced at the tender age of fifteen, apprenticing under the leadership of his esteemed brother, Doniel Stanton, a renowned gemologist and jewelry manufacturer throughout the United Kingdom.</p>
-            <p className="reveal">Born and raised in England, David now resides in the United States with his beloved wife and four remarkable children.</p>
-          </div>
-        </div>
-      </section>
-      <VDivider bg="#e9dfcc" fill="var(--paper)" />
+          </section>
 
-      {/* BELIEF (Philosophy) */}
-      <section id="belief">
-        <div className="wrap">
-          <div className="phil-heading-wrap reveal">
-            <span className="phil-heading uni-h">The Philosophy of the Founder</span>
-            <div className="phil-rule">
-              <span></span>
-              <svg className="phil-rule-icon" width="20" height="20" viewBox="0 0 792 783.134">
-                <path fill="currentColor" d="M 420.503906 331.320312 L 421.8125 330.535156 L 657.964844 194.234375 L 659.359375 193.449219 L 420.503906 193.449219 Z"/>
-                <path fill="currentColor" d="M 444.921875 373.703125 L 451.113281 377.277344 L 673.835938 505.816406 L 791.5625 377.277344 L 791.5625 352.597656 L 689.96875 232.257812 Z"/>
-                <path fill="currentColor" d="M 134.644531 193.460938 L 0.4375 352.609375 L 212.78125 352.609375 L 322.660156 416.007812 L 322.660156 656.519531 L 104.210938 418.1875 L 232.027344 418.1875 L 161.214844 377.289062 L 0.4375 377.289062 L 371.582031 782.269531 L 371.582031 387.839844 L 239.640625 311.710938 L 88.515625 311.710938 L 153.746094 234.445312 L 322.660156 234.445312 L 322.660156 303.164062 L 371.582031 331.332031 L 371.582031 193.460938 Z"/>
-                <path fill="currentColor" d="M 396.046875 0 L 369.359375 73.355469 L 271.023438 9.132812 L 263.746094 92.769531 L 130.300781 50.382812 L 180.539062 145.574219 L 611.414062 145.574219 L 661.796875 50.382812 L 528.351562 92.769531 L 521.070312 9.132812 L 422.738281 73.355469 Z"/>
-                <path fill="currentColor" d="M 420.503906 782.257812 L 639.914062 542.792969 L 420.503906 416.085938 Z"/>
-              </svg>
-              <span></span>
+          <section id="belief" className="duo-panel" ref={duoPhilRef as any}>
+            <div className="wrap">
+              <div className="phil-heading-wrap reveal">
+                <span className="phil-heading uni-h">The Philosophy of the <em>Founder</em></span>
+                <div className="phil-rule">
+                  <span></span>
+                  <svg className="phil-rule-icon" width="20" height="20" viewBox="0 0 792 783.134">
+                    <path fill="currentColor" d="M 420.503906 331.320312 L 421.8125 330.535156 L 657.964844 194.234375 L 659.359375 193.449219 L 420.503906 193.449219 Z"/>
+                    <path fill="currentColor" d="M 444.921875 373.703125 L 451.113281 377.277344 L 673.835938 505.816406 L 791.5625 377.277344 L 791.5625 352.597656 L 689.96875 232.257812 Z"/>
+                    <path fill="currentColor" d="M 134.644531 193.460938 L 0.4375 352.609375 L 212.78125 352.609375 L 322.660156 416.007812 L 322.660156 656.519531 L 104.210938 418.1875 L 232.027344 418.1875 L 161.214844 377.289062 L 0.4375 377.289062 L 371.582031 782.269531 L 371.582031 387.839844 L 239.640625 311.710938 L 88.515625 311.710938 L 153.746094 234.445312 L 322.660156 234.445312 L 322.660156 303.164062 L 371.582031 331.332031 L 371.582031 193.460938 Z"/>
+                    <path fill="currentColor" d="M 396.046875 0 L 369.359375 73.355469 L 271.023438 9.132812 L 263.746094 92.769531 L 130.300781 50.382812 L 180.539062 145.574219 L 611.414062 145.574219 L 661.796875 50.382812 L 528.351562 92.769531 L 521.070312 9.132812 L 422.738281 73.355469 Z"/>
+                    <path fill="currentColor" d="M 420.503906 782.257812 L 639.914062 542.792969 L 420.503906 416.085938 Z"/>
+                  </svg>
+                  <span></span>
+                </div>
+              </div>
+              <div className="phil-grid">
+                <div className="phil-art reveal">
+                  <img src="/philosophy.webp" alt="The Philosophy of the Founder, handwritten by David C. Stanton" loading="lazy" />
+                </div>
+                <PhilosophyText />
+              </div>
+              <div className="phil-sig">
+                <span className="phil-sig-name">David C. Stanton</span>
+                <span className="phil-sig-date">Founder of Stanton Kingdom</span>
+              </div>
             </div>
-          </div>
-          <div className="phil-grid">
-            <div className="phil-art reveal">
-              <img src="/philosophy.webp" alt="The Philosophy of the Founder, handwritten by David C. Stanton" loading="lazy" />
-            </div>
-            <PhilosophyText />
-          </div>
-          <div className="phil-sig">
-            <span className="phil-sig-name">David C. Stanton</span>
-            <span className="phil-sig-date">Founder of Stanton Kingdom</span>
-          </div>
+          </section>
         </div>
-      </section>
-      <VDivider bg="var(--ivory)" fill="var(--paper)" />
+      </div>
+      <VDivider bg="var(--ivory)" fill="#e9dfcc" />
 
       {/* COLLECTIONS */}
       <section id="collections" style={{ padding: "7.5rem 0", background: "var(--ivory)", position: "relative" }}>
@@ -763,7 +865,10 @@ function HomePage() {
           <CollectionsCarousel onPick={openCatalog} />
         </div>
       </section>
-      <VDivider bg="var(--navy)" fill="var(--ivory)" />
+      {/* Catalog renders nothing until a style is picked, in which case the
+          next visible section is Journey (navy) — but once a style IS picked,
+          Catalog's own ivory background sits right below this divider instead. */}
+      <VDivider bg={selection ? "var(--ivory)" : "var(--navy)"} fill="var(--ivory)" />
 
       {/* CATALOG */}
       <Catalog selection={selection} onClose={closeCatalog} />
@@ -798,7 +903,7 @@ function HomePage() {
       <section id="faq">
         <div className="wrap">
           <div className="sec-head reveal faq-head">
-            <span className="eyebrow">Questions Answered</span>
+            <span className="eyebrow">Questions, Answered.</span>
           </div>
           <button
             className="faq-toggle reveal"
@@ -809,7 +914,7 @@ function HomePage() {
             }}
           >
             <span className="faq-toggle-txt serif canela canela-light uni-h">Before you ask.</span>
-            <span className="faq-toggle-icon">+</span>
+            <span className="faq-toggle-icon"><span className="faq-toggle-icon-glyph">+</span></span>
           </button>
           <div className="faq-list" hidden={!faqOpen}>
             {FAQ.map((f, i) => (
@@ -826,20 +931,26 @@ function HomePage() {
           </div>
         </div>
       </section>
-      <VDivider bg="var(--ivory)" fill="#f5efe1" />
+      <VDivider bg="#f5efe1" fill="var(--ivory)" />
 
 
-      {/* BEGIN */}
+      {/* BEGIN + FOOTER — wrapped together so the footer's sticky reveal is
+          bounded to just this tail stretch, not the whole document. */}
+      <div className="curtain-wrap">
       <section id="begin">
         <h2 className="serif canela canela-light reveal uni-h begin-h">Start <em>Your Story.</em></h2>
         <div className="contact-grid reveal">
           <a className="contact-opt" href="https://wa.me/16464508840">
             <svg className="cc-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.38 5.07L2 22l5.06-1.33A9.94 9.94 0 0 0 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm5.2 14.2c-.22.62-1.09 1.15-1.79 1.3-.48.1-1.1.18-3.2-.69-2.69-1.11-4.43-3.83-4.57-4.01-.13-.18-1.09-1.45-1.09-2.77 0-1.32.69-1.96.94-2.23.22-.24.48-.3.64-.3.16 0 .32 0 .46.01.15.01.35-.06.55.42.22.53.74 1.83.8 1.96.06.13.1.29.02.47-.08.18-.12.29-.24.44-.12.15-.25.34-.36.46-.12.12-.24.25-.1.49.14.24.62 1.02 1.33 1.65.91.81 1.68 1.06 1.92 1.18.24.12.38.1.52-.06.14-.16.6-.7.76-.94.16-.24.32-.2.54-.12.22.08 1.4.66 1.64.78.24.12.4.18.46.28.06.1.06.58-.16 1.2z"/></svg>
             <span className="cc-label serif canela">Chat</span>
-            <span className="cc-sub">The quickest way to reach us.</span>
+            <span className="cc-sub">Message us anytime.</span>
           </a>
           <a className="contact-opt" href="tel:+16464508840">
-            <svg className="cc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M4 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L14 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 2 6a2 2 0 0 1 2-2Z"/></svg>
+            <span
+              className="cc-icon cc-icon-mask"
+              style={{ WebkitMaskImage: `url(${phoneIconUrl})`, maskImage: `url(${phoneIconUrl})` }}
+              aria-hidden="true"
+            />
             <span className="cc-label serif canela">Call</span>
             <span className="cc-sub">Speak with us directly.</span>
           </a>
@@ -856,9 +967,17 @@ function HomePage() {
               }
             }}
           >
-            <svg className="cc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+            <svg className="cc-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <rect x="7" y="1.3" width="2.2" height="5.4" rx="1.1" />
+              <rect x="14.8" y="1.3" width="2.2" height="5.4" rx="1.1" />
+              <path
+                fillRule="evenodd"
+                clipRule="evenodd"
+                d="M5 4h14a2.5 2.5 0 0 1 2.5 2.5V19A2.5 2.5 0 0 1 19 21.5H5A2.5 2.5 0 0 1 2.5 19V6.5A2.5 2.5 0 0 1 5 4zM4 8.7h16v1.4H4V8.7zm3.3 3.9a1.1 1.1 0 1 1 0 2.2 1.1 1.1 0 0 1 0-2.2zm4.7 0a1.1 1.1 0 1 1 0 2.2 1.1 1.1 0 0 1 0-2.2zm4.7 0a1.1 1.1 0 1 1 0 2.2 1.1 1.1 0 0 1 0-2.2z"
+              />
+            </svg>
             <span className="cc-label serif canela">Consult</span>
-            <span className="cc-sub">Time set aside with David.</span>
+            <span className="cc-sub">Discuss in person or virtual.</span>
           </button>
         </div>
 
@@ -921,7 +1040,8 @@ function HomePage() {
           <button type="submit" className="btn btn-gold" style={{ marginTop: "1.6rem" }}>Begin the Conversation</button>
         </form>
       </section>
-      <VDivider bg="var(--navy)" fill="var(--paper-cream)" />
+      <SiteFooter />
+      </div>
     </>
   );
 }
