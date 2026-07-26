@@ -688,14 +688,21 @@ function HomePage() {
   // the Founder enters from the right (the "other side"), landing exactly
   // where Heritage's trailing edge is at every instant so the two edges
   // always meet with zero gap between them. Fully reversible scrolling up.
-  // More overall scroll distance than before — motion starts immediately
-  // (see the front-loaded easing below) but now takes a bit more scrolling
-  // to fully unfold, so it reads as smooth and deliberate rather than rushed.
-  const DUO_HOLD = "340vh";
-  const DUO_ENTER_END = 0.16;   // heritage finishes arriving — starts moving immediately, no blank stretch
-  const DUO_CROSS_SPAN = 0.4;   // heritage exits left / philosophy enters right, together
-  // Cross starts the instant enter ends — no hold, no gap.
+  //
+  // Three properties this timing is built to guarantee:
+  //  1. Heritage is already sliding in while the section is still rising into
+  //     view — DUO_LEAD starts the clock before the panel is pinned, instead
+  //     of everything waiting until it is locked to the top of the screen.
+  //  2. The two phases occupy identical spans and share one easing curve, so
+  //     Heritage arriving, Heritage leaving and Philosophy arriving all travel
+  //     at matching speeds rather than one snapping faster than the others.
+  //  3. The cross finishes exactly at p=1, so the pin releases the moment
+  //     Philosophy lands — no stretch of scrolling against a frozen screen.
+  const DUO_HOLD = "300vh";
+  const DUO_LEAD = 0.7;         // viewport-heights of pre-roll before the pin locks
+  const DUO_ENTER_END = 0.5;    // heritage arrives and settles at the midpoint
   const DUO_CROSS_START = DUO_ENTER_END;
+  const DUO_CROSS_SPAN = 1 - DUO_CROSS_START;
 
   const duoTrackRef = useRef<HTMLDivElement>(null);
   const duoHeritageRef = useRef<HTMLElement>(null);
@@ -714,13 +721,10 @@ function HomePage() {
     }
 
     const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
-    // Strongly front-loaded — Heritage is substantially visible within the
-    // very first few percent of scroll, not just technically-moving. The
-    // cross phase uses the same curve (not easeInOutSine, which starts with
-    // near-zero velocity) so the instant Heritage finishes settling, the
-    // handoff to Philosophy is already visibly underway — no stretch of
-    // scrolling that looks like nothing is happening before motion kicks in.
-    const easeOutQuart = (t: number) => 1 - Math.pow(1 - t, 4);
+    // One curve for both phases so every leg of the sequence accelerates and
+    // decelerates identically: Heritage eases in and settles, then eases back
+    // out at the same rate Philosophy eases in behind it.
+    const easeInOutSine = (t: number) => -(Math.cos(Math.PI * t) - 1) / 2;
 
     let raf = 0;
     const tick = () => {
@@ -728,11 +732,12 @@ function HomePage() {
       const track = duoTrackRef.current;
       if (!track) return;
       const rect = track.getBoundingClientRect();
-      const total = Math.max(1, track.offsetHeight - window.innerHeight);
-      const p = clamp01(-rect.top / total);
+      const lead = window.innerHeight * DUO_LEAD;
+      const total = Math.max(1, track.offsetHeight - window.innerHeight + lead);
+      const p = clamp01((-rect.top + lead) / total);
 
-      const enter = easeOutQuart(clamp01(p / DUO_ENTER_END));
-      const cross = easeOutQuart(clamp01((p - DUO_CROSS_START) / DUO_CROSS_SPAN));
+      const enter = easeInOutSine(clamp01(p / DUO_ENTER_END));
+      const cross = easeInOutSine(clamp01((p - DUO_CROSS_START) / DUO_CROSS_SPAN));
 
       // Heritage: -100% (off-screen left) -> 0% (centered) -> -100% (exits left)
       const heritageX = -100 + 100 * enter - 100 * cross;

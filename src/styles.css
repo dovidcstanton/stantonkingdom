@@ -210,8 +210,11 @@ header.scrolled .brand-logo{filter:brightness(.5) saturate(1.3) contrast(1.15)}
   background-image:
     url('/hero-writing-original.jpg?v=20260722-hero-reset'),
     radial-gradient(ellipse 90% 70% at 50% 120%,var(--navy-glow),var(--navy));
-  /* Cover viewport height; let width overflow so we can pan across the full image */
-  background-size:auto 138%,cover;
+  /* Width is driven directly so the photo always overflows the viewport and can
+     pan. 184vh is the image's width at the old 138vh height (4:3 source); the
+     118vw floor keeps it covering — and still pannable — on wide/ultrawide
+     screens, where height-derived sizing left navy exposed at both edges. */
+  background-size:max(184vh,118vw) auto,cover;
   background-position:var(--bgx,16%) 68%,center;
   background-repeat:no-repeat;
   will-change:background-position;
@@ -298,7 +301,7 @@ header.scrolled .brand-logo{filter:brightness(.5) saturate(1.3) contrast(1.15)}
 /* Mobile: keep the wide image panning (width overflows viewport so --bgx can slide),
    lift content well above center, and keep the V-divider tip visible. */
 @media (max-width: 899px){
-  .hero-bg{background-size:auto 132%,cover;background-position:var(--bgx,24%) 88%,center}
+  .hero-bg{background-size:max(176vh,118vw) auto,cover;background-position:var(--bgx,24%) 88%,center}
   .hero{align-items:center;height:92vh;min-height:92vh;overflow:visible}
   .hero-bg,.hero-veil,.hero-navy-handoff{overflow:hidden}
   .hero-inner{padding:0 6vw 0;transform:translateY(28%);gap:clamp(1rem,2.4vw,1.3rem)}
