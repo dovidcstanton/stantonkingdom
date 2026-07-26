@@ -704,9 +704,17 @@ function HomePage() {
   // the previous timing left an almost-empty panel sitting there. The pan
   // finishes exactly as the pin releases, so Philosophy lands at the same
   // moment you are free to scroll onward.
-  const DUO_HOLD = "267vh";
-  const DUO_LEAD = 1;     // screen-heights of pan that happen before pinning
-  const DUO_TRAVEL = 2;   // screen-widths the camera covers in total
+  //
+  // DUO_REST parks Heritage dead centre for a beat so it can actually be read
+  // before it leaves. It is a flat hold, not an eased one: easing into and out
+  // of a stop spreads the slowdown across the surrounding motion and reads as
+  // the page lagging, whereas a clean stop reads as a deliberate pause.
+  const DUO_LEAD = 1; // screen-heights of pan before the pin locks
+  const DUO_LEG = 4 / 3; // screen-heights of scroll per screen-width panned
+  const DUO_REST = 0.6; // screen-heights Heritage holds at centre
+  const DUO_SPAN = 2 * DUO_LEG + DUO_REST;
+  // Track height equals the pan span because the lead is exactly one screen.
+  const DUO_HOLD = `${Math.round(DUO_SPAN * 100)}vh`;
 
   const duoTrackRef = useRef<HTMLDivElement>(null);
   const duoHeritageRef = useRef<HTMLElement>(null);
@@ -736,12 +744,13 @@ function HomePage() {
       const total = Math.max(1, track.offsetHeight - window.innerHeight + lead);
       const p = clamp01((-rect.top + lead) / total);
 
-      // Camera position in screen-widths travelled. Heritage owns the first
-      // width, the Heritage→Philosophy handoff the second; both are read off
-      // the same linear ramp, which is what keeps their speeds identical.
-      const camera = p * DUO_TRAVEL;
-      const enter = clamp01(camera);
-      const cross = clamp01(camera - 1);
+      // How far into the pan we are, in screen-heights of scroll. Both legs
+      // divide by the same DUO_LEG, which is what keeps Heritage arriving,
+      // Heritage leaving and Philosophy arriving at one identical rate; the
+      // rest simply sits between them without stretching either.
+      const travelled = p * DUO_SPAN;
+      const enter = clamp01(travelled / DUO_LEG);
+      const cross = clamp01((travelled - DUO_LEG - DUO_REST) / DUO_LEG);
 
       // Heritage: -100% (off-screen left) -> 0% (centered) -> -100% (exits left)
       const heritageX = -100 + 100 * enter - 100 * cross;
