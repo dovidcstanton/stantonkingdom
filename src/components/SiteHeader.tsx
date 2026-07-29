@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import wordmarkUrl from "../assets/stanton-wordmark.png";
 import phoneIconUrl from "../assets/icon-phone-mask.png";
 import bagIconUrl from "../assets/icon-bag-mask.png";
+import { COLLECTIONS, openCatalogFromMenu } from "../lib/collections";
 
 const SEARCH_INDEX = [
   { label: "The Philosophy of the Founder", tag: "Our Belief", anchor: "#belief" },
@@ -47,6 +48,19 @@ function IconPhone() {
   );
 }
 
+function IconChevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      className={"mm-chev" + (open ? " open" : "")}
+      width="13" height="13" viewBox="0 0 24 24"
+      fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <polyline points="9 5 16 12 9 19" />
+    </svg>
+  );
+}
+
 function IconBag() {
   return (
     <span
@@ -62,8 +76,18 @@ export function SiteHeader() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [contactOpen, setContactOpen] = useState(false);
+  const [menuCollectionsOpen, setMenuCollectionsOpen] = useState(false);
+  const [menuCategory, setMenuCategory] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Collapse the accordion whenever the menu closes so it reopens at the top level.
+  useEffect(() => {
+    if (!menuOpen) {
+      setMenuCollectionsOpen(false);
+      setMenuCategory(null);
+    }
+  }, [menuOpen]);
 
   useEffect(() => {
     let lastY = window.scrollY;
@@ -122,6 +146,12 @@ export function SiteHeader() {
     setMenuOpen(false);
     setContactOpen(false);
     document.querySelector(anchor)?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const pickFromMenu = (category: string, type: string) => {
+    setMenuOpen(false);
+    // "All" is a wildcard — the catalog shows every piece matching the rest.
+    openCatalogFromMenu({ category, type, style: "All" });
   };
 
   return (
@@ -203,11 +233,72 @@ export function SiteHeader() {
       </div>
 
       <div className={"mobile-menu" + (menuOpen ? " open" : "")}>
-        <a href="#collections" onClick={(e) => { e.preventDefault(); go("#collections"); }}>Collections</a>
-        <a href="#heritage" onClick={(e) => { e.preventDefault(); go("#heritage"); }}>Heritage</a>
-        <a href="#journey" onClick={(e) => { e.preventDefault(); go("#journey"); }}>The Journey</a>
-        <a href="#faq" onClick={(e) => { e.preventDefault(); go("#faq"); }}>FAQ</a>
-        <a href="#begin" onClick={(e) => { e.preventDefault(); go("#begin"); }}>Start Your Story</a>
+        <nav className="mm-list" aria-label="Site menu">
+          <div className={"mm-item" + (menuCollectionsOpen ? " open" : "")}>
+            <button
+              type="button"
+              className="mm-link"
+              aria-expanded={menuCollectionsOpen}
+              onClick={() => {
+                setMenuCollectionsOpen((v) => !v);
+                setMenuCategory(null);
+              }}
+            >
+              Collections <IconChevron open={menuCollectionsOpen} />
+            </button>
+            <div className="mm-sub">
+              <div className="mm-sub-inner">
+                <a
+                  className="mm-viewall"
+                  href="#collections"
+                  onClick={(e) => { e.preventDefault(); go("#collections"); }}
+                >
+                  View all
+                </a>
+                {COLLECTIONS.map((col) => {
+                  const catOpen = menuCategory === col.name;
+                  return (
+                    <div key={col.name} className={"mm-item" + (catOpen ? " open" : "")}>
+                      <button
+                        type="button"
+                        className="mm-link mm-link-2"
+                        aria-expanded={catOpen}
+                        onClick={() => setMenuCategory(catOpen ? null : col.name)}
+                      >
+                        {col.name} <IconChevron open={catOpen} />
+                      </button>
+                      <div className="mm-sub">
+                        <div className="mm-sub-inner">
+                          <a
+                            className="mm-viewall"
+                            href="#catalog"
+                            onClick={(e) => { e.preventDefault(); pickFromMenu(col.name, "All"); }}
+                          >
+                            View all
+                          </a>
+                          {col.types.map((t) => (
+                            <a
+                              key={t}
+                              className="mm-link mm-link-3"
+                              href="#catalog"
+                              onClick={(e) => { e.preventDefault(); pickFromMenu(col.name, t); }}
+                            >
+                              {t}
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          <a className="mm-link" href="#heritage" onClick={(e) => { e.preventDefault(); go("#heritage"); }}>Heritage</a>
+          <a className="mm-link" href="#journey" onClick={(e) => { e.preventDefault(); go("#journey"); }}>The Journey</a>
+          <a className="mm-link" href="#faq" onClick={(e) => { e.preventDefault(); go("#faq"); }}>FAQ</a>
+          <a className="mm-link" href="#begin" onClick={(e) => { e.preventDefault(); go("#begin"); }}>Start Your Story</a>
+        </nav>
       </div>
 
       {/* Contact drawer */}

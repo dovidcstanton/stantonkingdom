@@ -53,8 +53,8 @@ export function Catalog({
     let filtered = src.filter(
       (p) =>
         p.category === selection.category &&
-        p.type === selection.type &&
-        (selection.style === "Uniquely Yours" ? true : p.style === selection.style) &&
+        (selection.type === "All" || p.type === selection.type) &&
+        (selection.style === "All" || selection.style === "Uniquely Yours" || p.style === selection.style) &&
         (shape === "all" || p.shape === shape),
     );
     if (sort === "new") filtered = [...filtered].sort((a, b) => b.date.localeCompare(a.date));
@@ -70,8 +70,18 @@ export function Catalog({
       <div className="wrap">
         <div className="cat-head">
           <div>
-            <span className="eyebrow">{selection.category} — {selection.type}</span>
-            <h2 className="serif">{selection.style}</h2>
+            <span className="eyebrow">
+              {selection.type === "All"
+                ? "Collections"
+                : selection.style === "All"
+                  ? selection.category
+                  : `${selection.category} — ${selection.type}`}
+            </span>
+            <h2 className="serif">
+              {selection.style === "All"
+                ? selection.type === "All" ? selection.category : selection.type
+                : selection.style}
+            </h2>
           </div>
           <button className="cat-close" aria-label="Close catalog" onClick={onClose}>× Close</button>
         </div>

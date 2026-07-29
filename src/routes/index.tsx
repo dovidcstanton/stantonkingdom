@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Catalog, type CatalogSelection } from "@/components/sections/Catalog";
+import { COLLECTIONS, STYLES, CATALOG_EVENT, type CatalogEventDetail } from "@/lib/collections";
 import { SiteFooter } from "@/components/SiteFooter";
 import phoneIconUrl from "@/assets/icon-phone-mask.png";
 
@@ -160,32 +161,6 @@ const FAQ = [
     a: ["Reach out. We'd love to hear from you."],
   },
 ];
-
-/* -------- Collections data -------- */
-const COLLECTIONS = [
-  {
-    name: "Rings",
-    img: "https://stantonkingdom.com/wp-content/uploads/2023/10/7c23248354327e336479345356485da4.jpg",
-    types: ["Engagement", "Wedding", "Eternity", "Haute Couture"],
-  },
-  {
-    name: "Necklaces",
-    img: "https://stantonkingdom.com/wp-content/uploads/2023/10/Necklace-e1698231277111-768x768.jpg",
-    types: ["Pendants", "Riviera & Tennis Necklaces", "Milestone Pieces"],
-  },
-  {
-    name: "Bracelets",
-    img: "https://stantonkingdom.com/wp-content/uploads/2023/10/shutterstock_1788848870-scaled-e1697638089202-768x548.jpg",
-    types: ["Tennis", "Bangles", "Statement & Link"],
-  },
-  {
-    name: "Earrings",
-    img: "https://stantonkingdom.com/wp-content/uploads/2023/10/Earrings-e1698231240846-768x768.jpg",
-    types: ["Studs & Clusters", "Hoops & Huggies", "Drops & Chandeliers"],
-  },
-];
-
-const STYLES = ["Classic", "Trendsetting", "Vintage", "Uniquely Yours"];
 
 function CollectionCard({
   col,
@@ -783,6 +758,16 @@ function HomePage() {
   const openCatalog = (category: string, type: string, style: string) => {
     setSelection({ category, type, style });
   };
+
+  // The header's burger menu opens the catalog by dispatching this event.
+  useEffect(() => {
+    const onMenuPick = (e: Event) => {
+      const d = (e as CustomEvent<CatalogEventDetail>).detail;
+      if (d?.category) setSelection({ category: d.category, type: d.type, style: d.style });
+    };
+    window.addEventListener(CATALOG_EVENT, onMenuPick);
+    return () => window.removeEventListener(CATALOG_EVENT, onMenuPick);
+  }, []);
   const closeCatalog = () => {
     setSelection(null);
     setTimeout(() => document.getElementById("collections")?.scrollIntoView({ behavior: "smooth" }), 40);

@@ -151,10 +151,36 @@ header.scrolled .brand-logo{filter:brightness(.5) saturate(1.3) contrast(1.15)}
 .search-empty{color:var(--ink-mute);font-size:.88rem;padding:.7rem .4rem}
 .mobile-menu{
   display:none;position:fixed;inset:0;background:rgba(251,249,244,.98);z-index:99;
-  flex-direction:column;align-items:center;justify-content:center;gap:2.2rem;
+  overflow-y:auto;padding:7.5rem 2rem 4rem;
 }
-.mobile-menu.open{display:flex}
-.mobile-menu a{font-size:.85rem;letter-spacing:.34em;text-transform:uppercase;color:var(--ink)}
+.mobile-menu.open{display:block}
+.mm-list{max-width:400px;margin:0 auto;display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.mm-link{
+  display:flex;align-items:center;justify-content:space-between;gap:1rem;width:100%;
+  font-family:var(--sans);font-weight:300;font-size:.85rem;letter-spacing:.34em;text-transform:uppercase;
+  color:var(--ink);background:none;border:0;border-bottom:1px solid var(--line);
+  padding:1.15rem .2rem;cursor:pointer;text-align:left;transition:color .3s;
+}
+.mm-link:hover{color:var(--gold)}
+.mm-item.open>.mm-link{color:var(--gold)}
+.mm-chev{flex:none;transition:transform .35s ease}
+.mm-chev.open{transform:rotate(90deg)}
+/* Accordion levels expand in place (0fr -> 1fr) so deeper levels push the
+   rest of the menu down instead of replacing the current view. */
+.mm-sub{display:grid;grid-template-rows:0fr;transition:grid-template-rows .45s ease}
+.mm-item.open>.mm-sub{grid-template-rows:1fr}
+.mm-sub-inner{overflow:hidden;min-height:0;padding-left:1.1rem}
+.mm-link-2{font-size:.74rem;letter-spacing:.28em;padding:.95rem .2rem;border-bottom-color:rgba(28,27,24,.08)}
+.mm-link-3{font-size:.7rem;letter-spacing:.24em;color:var(--ink-soft);border-bottom:0;padding:.7rem .2rem}
+.mm-viewall{
+  display:inline-block;font-size:.58rem;font-weight:400;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--ink-mute);text-decoration:underline;text-underline-offset:4px;
+  padding:.75rem .2rem .35rem;transition:color .3s;
+}
+.mm-viewall:hover{color:var(--gold)}
+@media(prefers-reduced-motion:reduce){
+  .mm-sub,.mm-chev{transition:none}
+}
 
 /* ---- Contact drawer ---- */
 .contact-scrim{
@@ -1073,7 +1099,11 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
   .search-result{padding:.9rem .3rem;min-height:48px}
   .cw{right:1rem;bottom:1rem}
   .cw-btn{width:52px;height:52px}
-  .mobile-menu a{padding:.5rem 1rem;font-size:1.5rem}
+  .mobile-menu{padding:6.5rem 1.6rem 3rem}
+  .mm-link{font-size:1rem;letter-spacing:.3em;padding:1.05rem .2rem;min-height:48px}
+  .mm-link-2{font-size:.85rem;letter-spacing:.26em}
+  .mm-link-3{font-size:.78rem;letter-spacing:.22em}
+  .mm-viewall{font-size:.62rem}
 }
 
 @media(min-width:761px){
