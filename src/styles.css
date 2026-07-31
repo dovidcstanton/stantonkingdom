@@ -18,6 +18,44 @@
   --line-light:rgba(251,249,244,.22);
   --serif:'Cormorant Garamond',Georgia,serif;
   --sans:'Jost','Helvetica Neue',Arial,sans-serif;
+
+  /* ---- Drawer palette ----
+     Both panels — contact on the right, menu on the left — are built from these
+     and nothing else. Three roles only: midnight navy carries structure and
+     depth, ivory carries warmth and legibility, champagne carries navigation,
+     borders, icons and every interactive emphasis. Deliberately no pure black
+     and no pure white anywhere in either panel. */
+  /* Taken from the footer, so the two drawers and the foot of the page are
+     one scheme rather than three. navy #0B1730, ivory #FBF9F4, gold #D9BB7F,
+     with ivory at 82% and 60% for the quieter tiers — exactly the values the
+     footer already renders. */
+  --dr-navy:var(--navy);            /* #0B1730 */
+  --dr-wash:rgba(217,187,127,.07);  /* the gold warming the ground on hover */
+  --dr-navy-action:#0F1E3C;         /* an action sitting inside an open row */
+  --dr-navy-action-hi:#182B50;      /* that action under the hand */
+  --dr-champagne:var(--gold-bright);/* #D9BB7F — the footer's only gold */
+  --dr-champagne-hi:var(--gold-bright);
+  --dr-ivory:var(--ivory);          /* #FBF9F4 */
+  --dr-ivory-soft:rgba(251,249,244,.82);
+  --dr-ivory-mute:rgba(251,249,244,.6);
+  /* What a row cools to when its neighbour is chosen: a soft light grey, a
+     shade off the ivory rather than a fade of it, so the list steps back
+     without any of it becoming hard to read. */
+  --dr-dim:#C2C4C9;
+  --dr-rule:linear-gradient(90deg,
+    transparent 0%,
+    rgba(217,187,127,.10) 18%,
+    rgba(217,187,127,.35) 50%,
+    rgba(217,187,127,.10) 82%,
+    transparent 100%);
+  --dr-rule-hi:linear-gradient(90deg,
+    transparent 0%,
+    rgba(217,187,127,.18) 18%,
+    rgba(217,187,127,.55) 50%,
+    rgba(217,187,127,.18) 82%,
+    transparent 100%);
+  --dr-ease:220ms ease;
+  --dr-open:290ms;            /* expand/collapse, inside the 260–320ms band */
 }
 *{margin:0;padding:0;box-sizing:border-box}
 html{scroll-behavior:smooth}
@@ -76,7 +114,12 @@ header::before{
   opacity:1;transition:opacity .5s;
 }
 header.scrolled::before{opacity:0}
-header.scrolled{background:rgba(251,249,244,.95);backdrop-filter:blur(14px);box-shadow:0 1px 0 var(--line)}
+/* Clean white, not the page's cream. The bar is the one element that sits over
+   every section in turn, so it reads best as a neutral plane rather than as a
+   lighter shade of whatever it is crossing — and the gold takes far more light
+   against white than it did against ivory. The navy drawers are untouched:
+   the contrast between the white bar and the dark panels is the hierarchy. */
+header.scrolled{background:rgba(255,255,255,.96);backdrop-filter:blur(14px);box-shadow:0 1px 0 var(--line)}
 
 .nav{position:relative;display:flex;align-items:center;justify-content:space-between;padding:.7rem 4vw;gap:1rem;min-height:64px}
 .nav-zone{display:flex;align-items:center;gap:.35rem}
@@ -100,15 +143,61 @@ header:not(.scrolled) .icon-btn:hover{color:var(--gold-bright)}
   -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
   -webkit-mask-size:contain;mask-size:contain;
 }
-/* The phone glyph's source silhouette is notably wider than tall (~1.2:1);
-   inside a square 18x18 box, mask-size:contain shrinks its height to ~15px
-   to fit the width, reading visibly smaller/higher than the other header
-   icons. Widen the box so its height reaches the same 18px the others use. */
-.icon-phone-glyph{width:21.6px;height:18px}
 
-/* Burger — shorter, tighter, slightly bolder */
-.burger{flex-direction:column;gap:4px}
-.burger span{display:block;width:18px;height:2px;background:currentColor;border-radius:1px;transition:background .4s}
+/* Burger that morphs into its own close button.
+   The three bars are absolutely positioned inside a fixed 18x14 box rather
+   than laid out with flex gaps: rotation needs each bar to keep a stable
+   centre to turn about, which a flex flow cannot guarantee once the middle
+   one starts shrinking. On open the outer two converge to the box's centre
+   line and rotate into the cross, while the middle bar retracts its WIDTH to
+   zero rather than merely fading — the line withdraws into itself, which is
+   what makes the gesture read as one movement instead of three tricks.
+   Every property shares one duration and easing for the same reason.
+   Because it is the same control throughout, the x closes what the bars
+   opened; no second button is involved. */
+/* The burger keeps the SAME button box as the other three icons. It used to be
+   an 18px box among 30px ones, which made the visual gap to the search icon
+   (6.8px) barely half the gap between chat and bag (12.8px) — the header read
+   lopsided even though the flex gap was identical on both sides. Equal boxes
+   make equal flex gaps produce equal visual gaps, with no per-side tuning.
+
+   Bars are 1.5px to match the stroke the SVG icons actually render at: 2 units
+   in a 24 viewBox drawn at 18px is 2 x 18/24 = 1.5px, so a 2px CSS bar was
+   heavier than every line beside it. */
+.burger{position:relative;width:var(--icon-size);height:var(--icon-size)}
+.burger span{
+  position:absolute;left:50%;top:50%;display:block;width:18px;height:1.5px;
+  background:currentColor;border-radius:1px;transform-origin:50% 50%;
+  transition:transform .28s ease-in-out,opacity .28s ease-in-out,background .4s;
+}
+/* Positioned entirely by transform from the box's centre, so each bar turns
+   about a stable point — the previous top-offset flow could not guarantee that
+   once the middle bar started shrinking. */
+.burger span:nth-child(1){transform:translate(-50%,-50%) translateY(-6px)}
+.burger span:nth-child(2){transform:translate(-50%,-50%)}
+.burger span:nth-child(3){transform:translate(-50%,-50%) translateY(6px)}
+/* Driven off aria-expanded so the visual state cannot drift from the state
+   assistive tech is told about — there is no separate class to keep in sync. */
+/* Over the hero the header is transparent and its icons are near-white, which
+   made the x vanish against the drawer's ivory panel the moment it was opened
+   from the top of the page. Once the drawer is behind it, the bars have to be
+   ink whatever the header's own state is. */
+/* Ivory while it is an x, gold only under the hand — the same rest-and-reach
+   the links beside it use, so the control at the top of the panel behaves like
+   everything below it. Stated at this weight because it has to outrank both the
+   generic .icon-btn colour and the transparent-header override. */
+.icon-btn.burger[aria-expanded="true"],
+header:not(.scrolled) .icon-btn.burger[aria-expanded="true"]{color:var(--dr-ivory)}
+.icon-btn.burger[aria-expanded="true"]:hover,
+.icon-btn.burger[aria-expanded="true"]:focus-visible,
+header:not(.scrolled) .icon-btn.burger[aria-expanded="true"]:hover,
+header:not(.scrolled) .icon-btn.burger[aria-expanded="true"]:focus-visible{color:var(--dr-champagne)}
+.burger[aria-expanded="true"] span:nth-child(1){transform:translate(-50%,-50%) rotate(45deg)}
+.burger[aria-expanded="true"] span:nth-child(2){transform:translate(-50%,-50%) scaleX(0);opacity:0}
+.burger[aria-expanded="true"] span:nth-child(3){transform:translate(-50%,-50%) rotate(-45deg)}
+@media(prefers-reduced-motion:reduce){
+  .burger span{transition-duration:.01ms}
+}
 
 /* Brand — dead-center pinned regardless of side zones */
 .brand{
@@ -149,53 +238,699 @@ header.scrolled .brand-logo{filter:brightness(.5) saturate(1.3) contrast(1.15)}
 .search-result-tag{display:block;font-family:var(--sans);font-size:.6rem;letter-spacing:.22em;
   text-transform:uppercase;color:var(--gold);margin-top:.15rem}
 .search-empty{color:var(--ink-mute);font-size:.88rem;padding:.7rem .4rem}
-.mobile-menu{
-  display:none;position:fixed;inset:0;background:rgba(251,249,244,.98);z-index:99;
-  flex-direction:column;align-items:center;justify-content:center;gap:2.2rem;
+/* ---- Navigation drawer (mirror of the contact drawer on the right) ---- */
+.nav-scrim{
+  position:fixed;inset:0;background:rgba(4,10,20,.5);z-index:260;
+  opacity:0;pointer-events:none;transition:opacity .45s ease;
 }
-.mobile-menu.open{display:flex}
-.mobile-menu a{font-size:.85rem;letter-spacing:.34em;text-transform:uppercase;color:var(--ink)}
+.nav-scrim.open{opacity:1;pointer-events:auto}
+/* Every row in the drawer starts on the same vertical line as the burger's
+   bars. The nav's own edge padding is 4vw on desktop and 1.5rem on a phone, so
+   the inset has to track it rather than be a fixed figure — on a 1600px screen
+   the burger sits at 64px while the drawer text sat at 24px, a 40px drift.
+   The extra ~2.6px is the x itself: the bars rotate 45deg about their centre,
+   so their leftmost ink lands just inside the button box, and matching the box
+   would still look a fraction out. */
+.nav-drawer{--drawer-inset:calc(4vw + 2.6px)}
+@media(max-width:760px){ .nav-drawer{--drawer-inset:calc(1.5rem + 2.6px)} }
+.nav-drawer{
+  position:fixed;top:0;left:0;height:100vh;height:100dvh;width:min(360px,88vw);z-index:270;
+  background:var(--dr-navy);border-right:1px solid rgba(217,187,127,.4);
+  transform:translateX(-100%);transition:transform .45s cubic-bezier(.5,.05,.2,1);
+  display:flex;flex-direction:column;overflow-y:auto;
+  /* The edge the arrows fly out through, and the wall the sliding panels are
+     clipped against. Explicit rather than left to the implied value, since a
+     scrollable y axis would otherwise let x scroll too. */
+  overflow-x:hidden;
+}
+/* Shadow only while open. Painted on the base rule it still rendered at rest
+   — translateX(-100%) moves the drawer's own box off-screen, but a positive
+   x-offset shadow is painted relative to that box, so its blur reached right
+   back across the viewport's left edge as a permanent hairline. */
+.nav-drawer.open{transform:none;box-shadow:24px 0 60px -30px rgba(0,0,0,.5)}
+/* While a finger is on it the drawer is not animating, it is being held: the
+   transition would fight the drag and lag a frame behind the touch. pan-y
+   leaves vertical scrolling to the browser and reserves horizontal movement
+   for the dismiss gesture, so the two never contest the same swipe. */
+.nav-drawer{touch-action:pan-y}
+.nav-drawer.dragging{transition:none}
+/* Padded clear of the fixed header so the burger — now the x that closes this
+   panel — sits over empty drawer surface rather than on top of the eyebrow. */
+.nav-drawer-head{
+  display:flex;align-items:center;justify-content:flex-start;gap:1rem;
+  padding:5.2rem 1.5rem 1.4rem var(--drawer-inset);position:relative;
+}
+.nav-drawer-head::after{
+  content:"";position:absolute;left:0;right:0;bottom:0;height:1px;
+  background-image:var(--dr-rule);
+}
+.nav-drawer-eyebrow{
+  font-family:var(--sans);font-size:.62rem;letter-spacing:.34em;
+  text-transform:uppercase;color:var(--dr-champagne);
+}
+/* The drawer is rendered inside <header>, so raising the header lifts the
+   drawer along with it and changes nothing between them. Both live in the
+   header's own stacking context, so the ordering has to be settled there:
+   the burger sits above the drawer's 270 and stays visible and clickable
+   as the x that closes it. */
+.burger{z-index:280}
+/* The burger is lifted above the drawers so it can serve as the nav drawer's
+   own close button. That lift is what put it ON TOP of the contact panel: the
+   panel is anchored right at 88vw, so its left edge lands at 0.12 x viewport —
+   45px at 375, but only 38px at 320 — while the burger always ends at 42px.
+   Below ~350px wide it was drawn over the panel's heading. It has no job while
+   the contact panel is open (the scrim and the panel's own x both dismiss it),
+   so it stands down rather than fighting for the corner. */
+/* It only ever needed to stop being ON TOP of the panel, not to leave. Dropping
+   below the drawer is enough: on a desktop the panel is 360px at the right edge
+   and the burger is nowhere near it, so it simply stays put. On a phone the
+   panel goes full width (below), which puts the burger cleanly behind it rather
+   than half-clipped by its edge. */
+header.contact-open .burger{z-index:250}
+body.contact-panel-open .cw{
+  opacity:0;pointer-events:none;
+  transition:opacity .3s ease;
+}
+.nav-drawer-links{display:flex;flex-direction:column;padding:.6rem 0}
+.nav-drawer-links a,
+.nav-drawer-links > button{
+  font-family:var(--serif);font-size:1.25rem;font-weight:400;color:var(--dr-ivory);
+  padding:1rem 1.5rem 1rem var(--drawer-inset);
+  transition:background-color var(--dr-ease),color var(--dr-ease),padding-left var(--dr-ease);
+  background-color:transparent;border:none;cursor:pointer;text-align:left;
+}
+/* The hand is answered by the word, not by a panel lighting up behind it. A
+   full-width wash made every hover an event the size of the drawer; the gold
+   and the half-step to the right say the same thing at the scale of the thing
+   being pointed at. */
+.nav-drawer-links a:hover,
+.nav-drawer-links > button:hover,
+.nav-drawer-links a:focus-visible,
+.nav-drawer-links > button:focus-visible{
+  color:var(--dr-champagne-hi);
+  padding-left:calc(var(--drawer-inset) + .3rem);outline:none;
+}
+/* Group header carries a chevron that turns to point down when open. */
+.nav-drawer-group{display:flex;align-items:center;justify-content:space-between;gap:1rem;width:100%}
+/* Gold, not the row's ivory: the chevron marks where the drill-down goes, the
+   same voice as the crumbs and the View All rows, so it carries their colour. */
+.nav-drawer-chev{
+  width:7px;height:7px;flex-shrink:0;margin-right:.15rem;
+  color:var(--dr-champagne);
+  border-right:1px solid currentColor;border-bottom:1px solid currentColor;
+  transform:rotate(-45deg);transition:transform .3s ease;
+}
+.nav-drawer-group.open .nav-drawer-chev{transform:rotate(45deg)}
+.nav-drawer-group.open{color:var(--dr-champagne-hi)}
+/* The trail across the head of every sub-level. */
+/* The chevron holds its place beside the trail; only the trail itself wraps,
+   so the back control never drops onto a line of its own. */
+.nav-crumbs{display:flex;align-items:flex-start;gap:.5rem;min-width:0;flex-wrap:nowrap}
+.nav-crumbs ol{
+  display:flex;align-items:center;flex-wrap:wrap;gap:.1rem .45rem;
+  list-style:none;margin:0;padding:0;min-width:0;
+}
+.nav-crumbs li{display:flex;align-items:center;gap:.45rem;margin:0}
+/* Drawn between crumbs rather than typed, so none can wrap onto a line alone. */
+.nav-crumbs li + li::before{
+  content:'';width:4px;height:4px;flex-shrink:0;
+  border-top:1px solid currentColor;border-right:1px solid currentColor;
+  transform:rotate(45deg);opacity:.5;color:var(--dr-champagne);
+}
+.nav-crumb{
+  background:none;border:none;padding:0;cursor:pointer;
+  font-family:var(--sans);font-size:.62rem;letter-spacing:.28em;
+  text-transform:uppercase;color:var(--dr-champagne);
+  transition:color var(--dr-ease);
+}
+.nav-crumb:hover,.nav-crumb:focus-visible{color:var(--dr-ivory);outline:none}
+/* Where you are, not somewhere to go: ivory, and not a button. */
+.nav-crumb.is-current{color:var(--dr-ivory);cursor:default}
+.nav-crumb-back{
+  display:flex;align-items:center;justify-content:center;
+  width:18px;height:18px;flex-shrink:0;margin:-1px 0 0 -3px;
+  background:none;border:none;cursor:pointer;color:var(--dr-champagne);
+  transition:color var(--dr-ease),transform var(--dr-ease);
+}
+.nav-crumb-back:hover,.nav-crumb-back:focus-visible{
+  color:var(--dr-ivory);outline:none;transform:translateX(-2px);
+}
+/* The living breadcrumb. An arriving crumb has NO fade of its own: it is held
+   invisible while its ghost travels and then shown in the same frame the ghost
+   is removed — by then the two are pixel-identical, so its appearance is not a
+   visible event. Only its separator eases in, since the ghost does not carry
+   one. Crumbs leaving with a folding level do fade, with it. */
+.nav-crumbs li.is-arriving{opacity:0}
+.nav-crumbs li.is-leaving{opacity:0;transition:opacity 240ms ease}
+.nav-crumbs li + li::before{transition:opacity 300ms ease}
+.nav-crumbs li.is-arriving::before{opacity:0}
+
+/* ---- Drill-down motion system ----
+   One level on screen at a time. The phases the component walks through are
+   painted here: a weighted, unhurried score rather than a mechanical slide.
+   focusing  — the chosen row holds while its siblings bow out;
+   held      — a freshly-mounted level waits, invisible, while the ghost flies;
+   revealing — the new level arrives row by row, top to bottom;
+   collapsing— a level folds away bottom to top before the path steps back. */
+/* ---- The two-panel swipe ----
+   One drawer-wide window with the live level in flow and the level being left
+   behind laid over it. Both are given their travel at the same instant, so a
+   step through the hierarchy is one continuous horizontal movement rather than
+   a list disappearing and another arriving in its place. */
+.nav-level-viewport{position:relative;flex:1;overflow:hidden}
+.nav-panel-out{position:absolute;inset:0 0 auto 0}
+/* Parked at their starting marks with NO transition — the live panel is the
+   same DOM node from one level to the next, so if the travel were declared on
+   the resting state it would animate its way TO the start mark and then back
+   again, netting almost no movement at all. The offset is taken instantly; the
+   journey belongs to .go, which arrives a frame later. */
+.nav-panel-in.is-fwd{transform:translateX(100%);transition:none}
+.nav-panel-in.is-back{transform:translateX(-100%);transition:none}
+.nav-panel-out.is-fwd,.nav-panel-out.is-back{transform:translateX(0);transition:none}
+.nav-panel-in.is-fwd.go,.nav-panel-in.is-back.go{transform:translateX(0)}
+.nav-panel-out.is-fwd.go{transform:translateX(-100%)}
+.nav-panel-out.is-back.go{transform:translateX(100%)}
+.nav-panel-in.go,.nav-panel-out.go{
+  transition:transform 520ms cubic-bezier(.5,.05,.2,1);
+  will-change:transform;
+}
+/* The return is quicker, matching the label's shorter descent. */
+.nav-panel-in.is-back.go,.nav-panel-out.is-back.go{transition-duration:440ms}
+/* A panel in transit is scenery; only the level you have landed on is live. */
+.nav-panel-out,.nav-panel-in.is-fwd,.nav-panel-in.is-back{pointer-events:none}
+.nav-panel-in:not(.is-fwd):not(.is-back){pointer-events:auto}
+/* A label the travelling ghost is carrying must not also be sitting in a
+   panel — it would be on screen twice. The row keeps its space; only the word
+   stands down, and its chevron with it, since it is on its way to becoming a
+   crumb and crumbs carry separators rather than chevrons. */
+.nav-row.ghosted,.nav-row.ghosted .nav-row-label{color:transparent}
+.nav-row.ghosted .nav-drawer-chev{opacity:0}
+/* The level being left on the way DOWN was dimmed while you chose from it, and
+   it must stay dimmed as it leaves — losing the focus class at the moment the
+   panel starts to travel would flash every sibling back to full ivory. */
+.nav-panel-out.is-fwd .nav-row{color:var(--dr-dim);opacity:.62}
+.nav-level{flex:1}
+/* Siblings step back rather than leave. They cool from ivory to a soft grey
+   and give up a little presence — enough that the chosen word is plainly the
+   focal point, not so much that anything becomes hard to read. */
+.nav-level.focusing .nav-row{
+  color:var(--dr-dim);opacity:.62;
+  transition:color 300ms cubic-bezier(.4,0,.3,1),opacity 300ms cubic-bezier(.4,0,.3,1);
+}
+.nav-level.focusing .nav-row.chosen{color:var(--dr-champagne-hi);opacity:1}
+/* Its chevron has done its work — the row is becoming a crumb, and crumbs
+   carry separators, not chevrons. */
+.nav-level.focusing .nav-row.chosen .nav-drawer-chev{opacity:0;transition:opacity 220ms ease}
+/* Rows in motion are scenery, not controls. */
+.nav-level.focusing .nav-row{pointer-events:none}
+
+/* The travelling label: one continuous object, a shared-element transition.
+   The container carries the motion and NEVER fades — at every frame of the
+   journey the word is on screen inside it. The two renderings of the same
+   label (departure typography, arrival typography — both cloned inline from
+   the live elements) sit in one grid cell, anchored to the same top-left, and
+   scale toward each other as the container travels, so the word is read as a
+   single thing changing size. Over the final stretch the departure rendering
+   resolves into the arrival one — the fades overlap generously, arrival
+   waxing before departure wanes, so the word is never absent and by the time
+   the object comes to rest it is already, exactly, the destination text. */
+.nav-ghost{
+  position:fixed;z-index:400;pointer-events:none;display:grid;
+  will-change:transform;
+  transition:transform 520ms cubic-bezier(.6,.05,.15,1);
+}
+.nav-ghost.travel{transform:translate(var(--gx),var(--gy))}
+.nav-ghost>span{
+  grid-area:1/1;justify-self:start;align-self:start;white-space:nowrap;
+  transform-origin:left top;will-change:transform,opacity;
+}
+.nav-ghost-from{
+  transition:
+    transform 520ms cubic-bezier(.6,.05,.15,1),
+    opacity 240ms cubic-bezier(.4,0,.6,1) 240ms;
+}
+.nav-ghost.travel .nav-ghost-from{transform:scale(var(--gs-out));opacity:0}
+.nav-ghost-to{
+  opacity:0;transform:scale(var(--gs-in));
+  transition:
+    transform 520ms cubic-bezier(.6,.05,.15,1),
+    opacity 240ms cubic-bezier(.4,0,.6,1) 200ms;
+}
+.nav-ghost.travel .nav-ghost-to{transform:scale(1);opacity:1}
+
+/* ---- Coming back ----
+   Same object, same mechanism, different moment for the change. The label
+   MOVES FIRST and resolves in the opening third of the journey: by the time
+   the eye has locked onto the travelling word it is already the word it will
+   become, and everything after that is pure travel. Changing at the click
+   made the transformation the event; changing on arrival made it a flip. This
+   hides it inside the start of the motion, which is where it disappears.
+   Quicker than the way up, too — a return should feel lighter than a
+   departure. */
+.nav-ghost-b{transition:transform 440ms cubic-bezier(.5,.06,.2,1)}
+.nav-ghost-b .nav-ghost-from{
+  transition:
+    transform 440ms cubic-bezier(.5,.06,.2,1),
+    opacity 170ms cubic-bezier(.4,0,.6,1) 40ms;
+}
+.nav-ghost-b .nav-ghost-to{
+  transition:
+    transform 440ms cubic-bezier(.5,.06,.2,1),
+    opacity 170ms cubic-bezier(.4,0,.6,1) 20ms;
+}
+/* The escape hatch, in the same position on every level so it is always where
+   you last found it. Set apart from the list below it by a hairline. */
+.nav-viewall{
+  font-family:var(--sans)!important;font-size:.68rem!important;letter-spacing:.24em;
+  text-transform:uppercase;color:var(--dr-champagne)!important;
+  padding:1.15rem 1.5rem .9rem var(--drawer-inset)!important;
+  border-bottom:none;border-top:1px solid rgba(217,187,127,.16);
+  margin:.6rem 0 0!important;
+  display:flex!important;align-items:center;gap:.75rem;
+}
+/* Its arrow behaves as every other arrow in the drawer does — including the
+   flight, which this rule must restate: being the more specific selector, a
+   bare `transition:opacity` here silently dropped the transform from the
+   shared rule and the arrow jumped its 190px instead of travelling them. */
+.nav-viewall .sk-arrow{
+  color:var(--dr-champagne);opacity:.72;
+  transition:opacity var(--dr-ease),transform 620ms cubic-bezier(.32,0,.2,1) 70ms;
+}
+/* Same interaction as every other row in the drawer: the label steps right
+   and the colour lifts to ivory (the drawer's white) rather than gold, since
+   gold here already marks the hairline and the arrow beside it. The arrow
+   keeps its own, larger travel, synced to the same hover. */
+.nav-viewall-label{display:inline-block;transition:transform var(--dr-ease)}
+.nav-viewall:hover .nav-viewall-label,.nav-viewall:focus-visible .nav-viewall-label{
+  transform:translateX(.3rem);
+}
+.nav-viewall:hover .sk-arrow,.nav-viewall:focus-visible .sk-arrow{opacity:1}
+.nav-viewall:hover .sk-arrow-shaft,.nav-viewall:focus-visible .sk-arrow-shaft{transform:scaleX(3.75)}
+.nav-viewall:hover .sk-arrow-head,.nav-viewall:focus-visible .sk-arrow-head{transform:translateX(44px)}
+.nav-viewall:hover,.nav-viewall:focus-visible{color:var(--dr-ivory)!important}
+.nav-viewall:hover .sk-arrow,.nav-viewall:focus-visible .sk-arrow{color:var(--dr-ivory)}
+/* "Uniquely Yours" is set apart here in white/ivory rather than gold — gold
+   is reserved for the David C. Stanton Collection section on the page itself,
+   and inside this navy drawer every other row already reads in ivory, so
+   white keeps "Uniquely Yours" legible as bespoke (via the italic serif)
+   without borrowing the page section's own accent colour. */
+.nav-yours{
+  font-style:italic;color:var(--dr-ivory)!important;
+  letter-spacing:.03em;
+}
+/* Back control sits beside the crumbs while you are below the root. */
+.nav-drawer-backchev{
+  width:7px;height:7px;flex-shrink:0;
+  border-left:1px solid currentColor;border-bottom:1px solid currentColor;
+  transform:rotate(45deg);
+}
+@media(prefers-reduced-motion:reduce){
+  .nav-drawer-chev,.nav-crumbs li,.nav-crumbs li + li::before,
+  .nav-ghost,.nav-ghost>span,.nav-ghost-b,.nav-ghost-b>span,
+  .nav-level,.nav-level .nav-row,.nav-panel-in,.nav-panel-out,
+  .sk-arrow{transition-duration:.01ms;animation-duration:.01ms}
+}
+.nav-drawer-foot{
+  margin-top:auto;display:flex;flex-direction:column;gap:.5rem;
+  padding:1.7rem 1.5rem 1.9rem var(--drawer-inset);position:relative;
+}
+.nav-drawer-foot::before{
+  content:"";position:absolute;top:0;left:0;right:0;height:1px;
+  background-image:var(--dr-rule);
+}
+/* The single way in at the foot of the drawer. Set as a quiet tracked capital
+   line rather than as another list item, so it reads as the end of the menu
+   rather than one more thing to choose between. */
+/* Set exactly as "Discover the Kingdom" is at the head of the drawer — same
+   family, size and tracking — so the panel opens and closes on the same voice.
+   No rule beneath it: the eyebrow above has none, and one here made the two
+   look like different kinds of thing. */
+/* Ivory like the links, gold under the hand. No panel behind it on hover — a
+   background made it look like a button pinned to the foot of the drawer. The
+   arrow carries the whole gesture instead: it EXTENDS, its shaft growing from
+   the word out towards the tip, and retracts the moment you leave.
+
+   The shaft is a separate rule rather than part of the arrow's own svg, because
+   scaling an svg would thin the stroke and drag the head with it. Here the head
+   holds still at full weight and only the line travels to meet it. */
+.nav-drawer-begin{
+  display:inline-flex;align-items:center;gap:.75rem;align-self:flex-start;
+  font-family:var(--sans);font-size:.72rem;letter-spacing:.3em;
+  text-transform:uppercase;color:var(--dr-ivory);
+  padding:.4rem 0;background:none;
+  transition:color var(--dr-ease),padding-left var(--dr-ease);
+}
+/* The same 0.3rem travel the nav links take, so the foot of the drawer answers
+   the hand the way the list above it does. */
+.nav-drawer-begin:hover,.nav-drawer-begin:focus-visible{
+  color:var(--dr-champagne);outline:none;background:none;
+  padding-left:.3rem;
+}
+@media(prefers-reduced-motion:reduce){
+  .nav-drawer-begin{transition-duration:.01ms}
+}
+@media(prefers-reduced-motion:reduce){
+  .nav-scrim,.nav-drawer,.contact-scrim,.contact-drawer{transition-duration:.01ms}
+}
 
 /* ---- Contact drawer ---- */
 .contact-scrim{
-  position:fixed;inset:0;background:rgba(11,23,48,.35);opacity:0;pointer-events:none;
+  position:fixed;inset:0;background:rgba(4,10,20,.5);opacity:0;pointer-events:none;
   transition:opacity .35s ease;z-index:260;
 }
 .contact-scrim.open{opacity:1;pointer-events:auto}
+/* Matte midnight, flat — no gradient and no bloom. Depth comes from the rows
+   sitting slightly above the ground, not from the ground being lit. */
 .contact-drawer{
+  --cg-pad:1.6rem;
   position:fixed;top:0;right:0;height:100vh;width:min(360px,88vw);z-index:270;
-  background:var(--ivory);border-left:1px solid var(--gold);
-  box-shadow:-24px 0 60px -30px rgba(11,23,48,.4);
+  background:var(--dr-navy);
+  border-left:1px solid rgba(217,187,127,.4);
   transform:translateX(100%);transition:transform .45s cubic-bezier(.5,.05,.2,1);
+  touch-action:pan-y;
   display:flex;flex-direction:column;
 }
-.contact-drawer.open{transform:translateX(0)}
+/* Matches .nav-drawer's own width exactly, rather than going full-screen on
+   small phones — the two panels are meant to feel like the same interaction
+   mirrored left/right, not two different kinds of overlay. */
+/* Shadow only while open — same fix as .nav-drawer's left edge. Painted on
+   the base rule it still rendered at rest: translateX(100%) moves the
+   drawer's own box off-screen, but a negative x-offset shadow is painted
+   relative to that box, so its blur reached back across the viewport's
+   right edge as a permanent hairline, on every breakpoint. */
+.contact-drawer.open{transform:translateX(0);box-shadow:-24px 0 60px -30px rgba(0,0,0,.5)}
+.contact-drawer.dragging{transition:none}
+
+/* The heading area carries more vertical space than any single row, so the
+   panel opens on a statement rather than straight into a list. */
 .contact-drawer-head{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:1.6rem 1.6rem 1.1rem;border-bottom:1px solid var(--line);
-}
-.contact-drawer-eyebrow{
-  font-family:var(--sans);font-size:.62rem;letter-spacing:.34em;
-  text-transform:uppercase;color:var(--gold);
+  position:relative;padding:3.6rem var(--cg-pad) .8rem;text-align:center;
 }
 .contact-drawer-close{
-  background:none;border:none;cursor:pointer;font-size:1.7rem;line-height:1;
-  color:var(--ink-mute);padding:.1rem .3rem;
+  position:absolute;top:1.15rem;right:1rem;
+  background:none;border:none;cursor:pointer;font-size:1.5rem;line-height:1;
+  color:var(--dr-ivory-mute);padding:.25rem .45rem;
+  transition:color var(--dr-ease);
 }
-.contact-drawer-close:hover{color:var(--gold)}
-.contact-drawer-body{padding:.4rem 0 1.6rem;display:flex;flex-direction:column}
-.contact-row{
-  display:flex;flex-direction:column;gap:.2rem;
-  padding:1.05rem 1.6rem;border-bottom:1px solid var(--line);
-  transition:background .3s ease;
+.contact-drawer-close:hover,.contact-drawer-close:focus-visible{color:var(--dr-champagne-hi)}
+.contact-drawer-h{
+  display:block;font-family:var(--serif);font-weight:500;font-size:1.78rem;
+  line-height:1.15;letter-spacing:.01em;color:var(--dr-ivory);
 }
-.contact-row:hover{background:rgba(174,140,76,.06)}
-.contact-row-label{
-  font-family:var(--sans);font-size:.6rem;letter-spacing:.32em;
-  text-transform:uppercase;color:var(--gold);
+/* Measured at roughly 78% of the heading's brightness — present and readable,
+   but never in contention with it. */
+/* Champagne, in the Cormorant italic the house already uses for its accent
+   words — "Start Your Story." sets "Your Story." exactly this way, so the panel
+   answers its own heading in the page's voice rather than in interface sans. */
+/* Set identically to "Questions, answered." at the foot of the panel — same
+   family, size, tracking and colour — so the two gold lines that bracket the
+   routes are recognisably one thing said twice. */
+/* Set exactly as "Message us anytime." is inside a row — same family, weight,
+   size, tracking and colour. Light, sentence case, nothing raised. */
+.contact-drawer-note{
+  margin:1rem 0 0;
+  font-family:var(--sans);font-weight:300;font-size:.8rem;
+  letter-spacing:.015em;line-height:1.5;text-transform:none;
+  color:var(--dr-champagne);
 }
-.contact-row-value{
-  font-family:var(--serif);font-weight:500;font-size:1.1rem;color:var(--navy);
+/* The beam that closes the heading, matching the one that opens the FAQ. */
+.contact-drawer-head::after{
+  content:'';position:absolute;left:0;right:0;bottom:0;height:1px;
+  background-image:var(--dr-rule);
+}
+
+/* The body is the flex column the routes grow inside. Without this it falls
+   back to a plain block, the rows sit at content height and the panel ends with
+   a dead stretch under the FAQ. */
+.contact-drawer-body{
+  flex:1;min-height:0;display:flex;flex-direction:column;
+  justify-content:center;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+}
+/* The three routes are centred in the band between the two rules — the one
+   under "We'd be glad to help" and the FAQ block's own top rule — rather
+   than being centred as one group WITH the FAQ, which is what left 120px
+   above Chat against 77px below Consult. Two auto margins split the free
+   space evenly between those two gaps, and the FAQ settles to the foot.
+   Auto margins take precedence over the body's justify-content. */
+.cg-faq{flex-shrink:0}
+.contact-drawer-body > .cg:first-child{margin-top:auto}
+.cg-faq{margin-top:auto}
+
+
+/* ---- The arrow, shared by both drawers ---- */
+/* Shaft and head are one svg in one coordinate system, so they cannot drift.
+   The shaft scales from its left edge and the head slides to meet its new end;
+   non-scaling-stroke keeps both at 1px however far the shaft travels, so
+   nothing thins or distorts as it grows. */
+/* Nocked, drawn, loosed. The shaft extends from the word, and then the whole
+   arrow runs — it does not merely get longer in place, it leaves. The travel
+   is given its own slightly longer curve and a beat of delay so the extension
+   reads first and the flight second, which is the difference between a line
+   growing and an arrow being released. The drawer clips it at its edge, so it
+   passes out of sight rather than stopping dead. */
+.sk-arrow{
+  width:64px;height:8px;flex-shrink:0;display:block;overflow:visible;
+  color:var(--dr-champagne);opacity:.72;
+  transform:translateX(0);
+  transition:opacity var(--dr-ease),transform 620ms cubic-bezier(.32,0,.2,1) 70ms;
+}
+.nav-drawer-begin:hover .sk-arrow,
+.nav-drawer-begin:focus-visible .sk-arrow{opacity:1}
+.sk-arrow-shaft{
+  transform-box:fill-box;transform-origin:0 50%;
+  transform:scaleX(1);
+  transition:transform 380ms cubic-bezier(.5,.05,.2,1);
+}
+.sk-arrow-head{
+  transform-box:fill-box;transform-origin:100% 50%;
+  transform:translateX(0);
+  transition:transform 380ms cubic-bezier(.5,.05,.2,1);
+}
+/* 14px of shaft at rest, 40px reached for — the head rides the extra 26px. */
+.nav-drawer-begin:hover .sk-arrow-shaft,
+.nav-drawer-begin:focus-visible .sk-arrow-shaft{transform:scaleX(3.75)}
+.nav-drawer-begin:hover .sk-arrow-head,
+.nav-drawer-begin:focus-visible .sk-arrow-head{transform:translateX(44px)}
+/* The flight itself, shared by every arrow in the drawer. */
+.nav-drawer-begin:hover .sk-arrow,.nav-drawer-begin:focus-visible .sk-arrow,
+.nav-viewall:hover .sk-arrow,.nav-viewall:focus-visible .sk-arrow{
+  transform:translateX(190px);
+}
+
+/* ---- The three routes ---- */
+/* A beam rather than a border: brightest at the centre, gone before it reaches
+   either edge, so the rows are separated without being boxed in. Painted on a
+   1px pseudo-element because a border cannot carry a gradient. */
+/* No rules between the routes. The menu's links stand apart on space alone and
+   these now match them, so the only thing that ever appears behind a row is the
+   wash that says your hand is on it. */
+.cg{position:relative}
+/* The rule nearest the row you are on lifts with it. */
+.cg:hover::before,.cg:focus-within::before,.cg.open::before,
+.cg:hover + .cg::before,.cg.open + .cg::before{background-image:var(--dr-rule-hi)}
+
+/* The three routes share whatever height the panel has left, so they occupy the
+   page rather than huddling under the heading. flex-basis:0 makes them split it
+   evenly; an opened row simply grows past its share on content. */
+/* Sized to their content and sitting close, rather than stretched to share the
+   panel. The FAQ block below takes the slack instead. */
+.cg{flex:0 0 auto;display:flex;flex-direction:column;min-height:0}
+.cg-head{
+  position:relative;flex:1;
+  display:flex;align-items:center;justify-content:flex-start;gap:1rem;width:100%;
+  min-height:0;padding:.85rem var(--cg-pad);border:none;cursor:pointer;
+  text-align:left;-webkit-tap-highlight-color:transparent;
+  background-color:transparent;
+  transition:background-color var(--dr-ease),color var(--dr-ease),
+             transform var(--dr-ease);
+}
+/* Hover, keyboard focus and the moment of a tap all land on the same treatment.
+   :active carries the touch case, where there is no hover to rely on and the
+   row has to acknowledge the press before the panel has opened. */
+/* The accent hue warming the ground rather than a second blue laid over it —
+   which is why it blends where a distinct navy block did not. */
+/* The same answer the navigation gives: the word turns gold and steps half a
+   space to the right. No panel lights up behind it. */
+.cg-head{transition:color var(--dr-ease),padding-left var(--dr-ease)}
+.cg-head:hover,.cg-head:focus-visible{padding-left:calc(var(--cg-pad) + .3rem)}
+.cg-head:focus-visible{outline:none}
+
+.cg-icon{width:19px;height:19px;display:block;color:inherit}
+.contact-glyph-mask{
+  background-color:currentColor;
+  -webkit-mask-position:center;mask-position:center;
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+  -webkit-mask-size:contain;mask-size:contain;
+}
+.cg-icon.contact-glyph-mask{width:23px;height:23px}
+
+/* Set exactly as the menu's links are — same family, size and weight — so the
+   two panels read as one house rather than as a menu and a contact form. */
+.cg-label{
+  font-family:var(--serif);font-weight:400;
+  font-size:clamp(1.5rem,6vw,1.8rem);line-height:1.15;
+  letter-spacing:.01em;text-transform:none;color:var(--dr-ivory);
+  transition:color var(--dr-ease);
+}
+.cg-head:hover .cg-label,.cg-head:focus-visible .cg-label,
+.cg-head:active .cg-label,.cg.open .cg-label{color:var(--dr-champagne-hi)}
+/* Deliberately quieter than the action beneath it — it introduces the route,
+   it is not the route. Against the number in particular it has to yield: the
+   thing you came for is the number. */
+/* Visible by default now (moved out of the collapsible panel) — it is the
+   context for the row, not part of the reveal. Pulled up slightly under the
+   head's own bottom padding so the two read as one block. */
+.cg-sub{
+  margin:-.35rem 0 .85rem;padding:0 var(--cg-pad);
+  font-family:var(--sans);font-weight:300;font-size:.78rem;line-height:1.5;
+  letter-spacing:.015em;color:var(--dr-ivory-mute);
+}
+
+
+/* ---- Expanded content ---- */
+/* 0fr to 1fr gives a genuine height transition with nothing measured in JS.
+   Visibility is what takes collapsed content out of the tab order, and it is
+   switched only after the height has finished travelling. */
+.cg-panelwrap{
+  display:grid;grid-template-rows:0fr;
+  opacity:0;visibility:hidden;
+  transition:grid-template-rows var(--dr-open) ease,opacity 200ms ease,
+             visibility 0s linear var(--dr-open);
+}
+.cg.open .cg-panelwrap{
+  grid-template-rows:1fr;opacity:1;visibility:visible;
+  transition:grid-template-rows var(--dr-open) ease,opacity 220ms ease 60ms,
+             visibility 0s linear 0s;
+}
+.cg-panel{overflow:hidden}
+/* Indented to the icon column above, so the actions read as nested inside the
+   row that revealed them rather than as a block of their own. */
+/* Ranged off the same left edge as the line above them, now that the line no
+   longer carries a glyph to indent past. */
+.cg-items{
+  display:flex;flex-direction:column;align-items:flex-start;gap:.75rem;
+  padding:0 var(--cg-pad) 1.4rem;
+}
+
+/* ---- Actions ---- */
+/* One system for every final action — WhatsApp, the number, the booking
+   link — same field, same border, same radius, same padding, so the three
+   read as one cohesive set rather than three separately styled ideas. A
+   soft, understated pill blended from the drawer's own gold rather than a
+   hard filled button or a borrowed WhatsApp-green widget. No shadow, no
+   glow — the border and the faint tint are the whole of the surface. */
+.cg-cta,.cg-item{
+  display:flex;align-items:center;gap:.75rem;width:auto;
+  padding:.75rem 1.3rem;border-radius:999px;
+  /* No fill at all — the hairline alone describes the button. The gold tint
+     that used to sit behind these read as a glow against the navy panel. */
+  background:transparent;
+  border:1px solid rgba(217,187,127,.28);
+  box-shadow:none;outline:none;
+  color:var(--dr-ivory);cursor:pointer;text-align:left;
+  transition:color var(--dr-ease),background-color var(--dr-ease),border-color var(--dr-ease);
+  -webkit-tap-highlight-color:transparent;
+}
+.cg-cta:hover,.cg-cta:focus-visible,
+.cg-item:hover,.cg-item:focus-visible{
+  background:transparent;
+  border-color:rgba(217,187,127,.45);
+  box-shadow:none;outline:none;
+}
+.cg-cta:focus-visible,.cg-item:focus-visible{outline:none}
+.cg-cta-icon,.cg-item-icon{
+  width:20px;height:20px;flex-shrink:0;display:block;color:var(--dr-champagne);
+  transition:color var(--dr-ease);
+}
+/* WhatsApp carries the house's own gold rather than its official green, so
+   the one coloured glyph in the drawer still reads as Stanton Kingdom's
+   palette rather than a third-party badge. One hover rule for all three:
+   the word goes gold, the icon goes white — nothing scales, moves, or glows. */
+.cg-cta:hover .cg-cta-icon,.cg-cta:focus-visible .cg-cta-icon,
+.cg-item:hover .cg-item-icon,.cg-item:focus-visible .cg-item-icon{color:var(--dr-ivory)}
+.cg-cta:hover .cg-cta-label,.cg-cta:focus-visible .cg-cta-label,
+.cg-item:hover .cg-item-label,.cg-item:focus-visible .cg-item-label{color:var(--dr-champagne-hi)}
+.cg-cta .cg-cta-label{font-weight:500}
+.cg-item-icon.contact-glyph-mask{width:23px;height:23px}
+/* The action carries more weight than the sentence that introduced it — this
+   is what the phone number needs in order to be the thing you see first. */
+/* Type only — no colour. These sit inside .cg-cta/.cg-item and must take the
+   row's ivory (and its gold on hover); an explicit `inherit` here was landing
+   later in the cascade than the row's own rule and pulling the page's dark ink
+   all the way down, which is what left the phone number unreadable once the
+   filled button behind it was removed. */
+.cg-cta-label,.cg-item-label{
+  font-family:var(--sans);font-weight:400;font-size:.95rem;letter-spacing:.03em;
+  line-height:1.2;transition:color var(--dr-ease);
+}
+.cg-item .cg-ico{width:auto;height:20px;opacity:1}
+
+/* The other way in, kept quiet — and answering the hand exactly as everything
+   else in the drawer does, rather than with a rule of its own. */
+/* Deliberately the quieter of the two ways to write to us: a soft, muted gold
+   that stays secondary beside WhatsApp while still belonging to the site's
+   own palette rather than reading as a neutral grey utility link. */
+.cg-textlink{
+  align-self:flex-start;
+  font-family:var(--sans);font-weight:300;font-size:.78rem;letter-spacing:.02em;
+  color:rgba(217,187,127,.55);text-decoration:none;
+  transition:color var(--dr-ease),padding-left var(--dr-ease);
+}
+.cg-textlink:hover,.cg-textlink:focus-visible{
+  color:var(--dr-champagne-hi);outline:none;padding-left:.3rem;
+}
+
+/* ---- The hand-off to the FAQ ---- */
+/* Set well clear of Consult and introduced by its own beam, so it reads as the
+   panel turning from people to answers rather than as a fourth route. */
+/* Centred and set to the same rhythm as the heading at the top of the panel,
+   so the two ends of the drawer answer each other. */
+.cg-faq{
+  position:relative;
+  display:flex;flex-direction:column;align-items:center;text-align:center;
+  gap:.75rem;margin:auto 0 0;padding:3.4rem var(--cg-pad) 3.2rem;
+  -webkit-tap-highlight-color:transparent;
+  transition:background-color var(--dr-ease);
+}
+.cg-faq::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background-image:var(--dr-rule);
+  transition:background-image var(--dr-ease);
+}
+/* No panel behind it, in keeping with everything else in the drawer. The mark
+   brightening to ivory and the gold eyebrow are the whole of the response. */
+.cg-faq:hover,.cg-faq:focus-visible{outline:none}
+.cg-faq:hover::before,.cg-faq:focus-visible::before{background-image:var(--dr-rule-hi)}
+.cg-faq-ico{
+  width:26px;height:26px;flex-shrink:0;display:block;
+  color:var(--dr-champagne);opacity:.82;
+  transition:color var(--dr-ease),opacity var(--dr-ease);
+}
+/* To ivory, not brighter gold — it joins "Before you ask." rather than
+   staying an accent beside it. */
+.cg-faq:hover .cg-faq-ico,.cg-faq:focus-visible .cg-faq-ico{color:var(--dr-ivory);opacity:1}
+.cg-faq-txt{display:flex;flex-direction:column;align-items:center;gap:.6rem;min-width:0}
+.cg-faq-eyebrow{
+  display:block;
+  font-family:var(--sans);font-size:.6rem;letter-spacing:.34em;
+  text-transform:uppercase;color:var(--dr-champagne);
+  transition:color var(--dr-ease);
+}
+/* Larger than its eyebrow by some margin, and deliberately a step under
+   "Any Questions?" — this closes the panel, it does not open it. */
+.cg-faq-title{
+  display:block;font-family:var(--serif);font-weight:600;
+  font-size:clamp(1.6rem,6.8vw,1.8rem);
+  line-height:1.1;color:var(--dr-ivory);
+  transition:color var(--dr-ease);
+}
+.cg-faq:hover .cg-faq-title,.cg-faq:focus-visible .cg-faq-title{color:var(--dr-ivory)}
+
+@media(prefers-reduced-motion:reduce){
+  .contact-drawer,.cg-head,.cg-panelwrap,.cg-cta,.cg-item,
+  .cg-textlink::after,.cg-faq{transition-duration:.01ms}
+  .cg-cta:hover,.cg-item:hover{transform:none}
 }
 
 /* ================ HERO ================ */
@@ -300,12 +1035,18 @@ header.scrolled .brand-logo{filter:brightness(.5) saturate(1.3) contrast(1.15)}
 }
 /* Mobile: keep the wide image panning (width overflows viewport so --bgx can slide),
    lift content well above center, and keep the V-divider tip visible. */
+/* Bottom-anchored, exactly as desktop above and mobile below. This band used
+   to centre the copy and nudge it down 28%, which left tablets — and only
+   tablets — with the writing floating mid-frame while both neighbouring
+   breakpoints sat it on the floor. The 92vh height and visible overflow went
+   with that treatment (they existed to keep the V-notch showing), so they go
+   too: full height with the notch hidden, the same as the phone layout. */
 @media (max-width: 899px){
   .hero-bg{background-size:max(176vh,118vw) auto,cover;background-position:var(--bgx,24%) 88%,center}
-  .hero{align-items:center;height:92vh;min-height:92vh;overflow:visible}
+  .hero{align-items:flex-end;height:100vh;min-height:100vh;overflow:hidden}
   .hero-bg,.hero-veil,.hero-navy-handoff{overflow:hidden}
-  .hero-inner{padding:0 6vw 0;transform:translateY(28%);gap:clamp(1rem,2.4vw,1.3rem)}
-  .hero-v-notch{display:block}
+  .hero-inner{padding:0 6vw 3.4rem;transform:none;gap:clamp(1rem,2.4vw,1.3rem)}
+  .hero-v-notch{display:none}
 }
 
 
@@ -316,8 +1057,13 @@ header.scrolled .brand-logo{filter:brightness(.5) saturate(1.3) contrast(1.15)}
 }
 .v-divider{width:100%;height:46px;display:block;line-height:0}
 .v-divider svg{width:100%;height:100%;display:block}
+/* Top padding clears the fixed header. The panel centres its content, so
+   without it the heading landed above the header's lower edge and "The
+   Philosophy of the Founder" was unreadable. Trimmed once the swash arrived:
+   its flourish rises well above the cap line and supplies its own air, so the
+   old figure was paying for the same space twice. */
 #belief{
-  padding:2rem 0;
+  padding:4.2rem 0 2rem;
   background:transparent;
 }
 #belief .wrap{max-width:1420px}
@@ -330,39 +1076,103 @@ header.scrolled .brand-logo{filter:brightness(.5) saturate(1.3) contrast(1.15)}
   font-size:clamp(2rem,3.6vw,3.1rem)!important;line-height:1.22!important;
   letter-spacing:normal!important;text-transform:none!important;
 }
-/* Navy text + gold italic accent — echoes Heritage's h2 treatment ("A
-   voyage amidst the stones.") so both panels read as one color-coordinated
-   set, like two walls in the same gallery. */
+/* PREVIEW — scoped to this one heading only, pending approval before any
+   other heading on the site picks up the same treatment.
+
+   True same-surface deboss: the letters are literally var(--paper-cream), the
+   exact tone named for this panel's own backdrop (.duo-pin's gradient runs
+   #f2eadb → --paper-cream → #e9dfcc, above) — there is no colour contrast
+   between glyph and ground at all. Legibility comes entirely from a two-layer
+   text-shadow, and the direction is what makes it read as PRESSED IN rather
+   than pushed out: with light from the conventional upper-left, a recessed
+   groove has its near wall (top-left) turned away from the source and shadowed
+   by its own rim, while its far wall (bottom-right) catches the light bouncing
+   in. So the dark shadow sits top-left and the highlight sits bottom-right —
+   the reverse of a raised/embossed bump, which would put the highlight where
+   the light actually lands (top-left) and the shadow on its far, unlit side.
+   Both are warmed slightly off pure white/black so the effect sits with the
+   parchment's own hue rather than reading as a generic UI bevel. */
 .phil-heading{
   display:block;font-family:'Canela','Fraunces',var(--serif);font-style:normal;font-weight:700;
   font-size:clamp(1.6rem,2.9vw,2.3rem);letter-spacing:.01em;
-  text-transform:none;color:var(--navy);
+  text-transform:none;
+  /* NOT --paper-cream. That token is the gradient's 45% stop, but this
+     heading sits much higher up the panel (~13% down), inside the radial
+     highlight's reach — so the ground under it is lighter than paper-cream,
+     not the same as it. #F5EFE4 is the true composite at this spot: measured
+     by rendering .duo-pin's exact gradient stack to a canvas and sampling the
+     pixel under the heading's own centre, cross-checked against the same
+     figure worked out by hand from the gradient math, and confirmed stable
+     (±2 per channel) across three viewport heights from a phone to a short
+     laptop window — the sticky pin holds this element at very nearly the same
+     fraction of the screen regardless of how tall the screen is, which is
+     what makes one flat value safe here. */
+  color:#f5efe4;
+  text-shadow:
+    -1px -1px 1px rgba(64,50,30,.42),
+    1px 1px 1.5px rgba(255,252,244,.6);
 }
-.phil-heading em{font-style:italic;color:var(--gold)}
-.phil-rule{display:flex;align-items:center;justify-content:center;gap:.7rem;margin:1.1rem 0 0}
-.phil-rule span{width:52px;height:1px;background:rgba(174,140,76,.45)}
-.phil-rule-icon{display:inline-block;color:var(--navy)}
+.sr-only{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+  overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;
+}
+/* The gap the ruled diamond used to occupy is kept deliberately empty. Removing
+   the ornament and closing the space with it would have made the panel tighter,
+   not calmer — the air under the heading is what gives the artwork room to be
+   the subject. */
 .phil-grid{
   display:grid;grid-template-columns:1fr 1fr;gap:2.5rem;
-  align-items:center;margin:.3rem auto 0;max-width:1500px;
+  align-items:center;margin:2.6rem auto 0;max-width:1500px;
 }
+/* The artwork leads, but the panel is locked to one screen, so its height is a
+   budget shared with the heading above and the signature below. 78vh blew that
+   budget — the panel ran 998px inside a 900px viewport, burying the heading
+   under the fixed header and pushing the signature below the fold. 53vh leaves
+   room for both while still standing clearly taller than the copy beside it,
+   which is now wider (and so shorter) than it was. */
 .phil-art{display:flex;justify-content:flex-end;padding-right:.4rem}
 .phil-art img{
-  max-width:94%;max-height:64vh;width:auto;height:auto;
+  max-width:96%;max-height:53vh;width:auto;height:auto;
   image-rendering:-webkit-optimize-contrast;
-  filter:drop-shadow(0 4px 8px rgba(28,27,24,.35)) drop-shadow(0 34px 60px rgba(28,27,24,.28));
+  /* Lit from the upper left, so the shadow falls to the lower right and the
+     left edge stays clean. The old shadow was centred (0 x-offset), which cast
+     as much darkness to the left as to the right — and on mobile, where this
+     panel slides in beside Heritage, that left-hand darkness read as a seam
+     between the two sections rather than as depth under the artwork. The
+     x-offsets are kept at or above their blur radii so nothing bleeds back
+     across the left edge. */
+  filter:drop-shadow(10px 7px 10px rgba(28,27,24,.30)) drop-shadow(34px 30px 46px rgba(28,27,24,.22));
 }
-.phil{text-align:left;max-width:60ch;margin:0}
+/* Narrow measure, at every width. The copy is no longer stretched to match the
+   parchment's height — trying to fill that ratio drove the paragraph spacing to
+   zero on tablet (natural text 492px against a 490px image left no slack at all)
+   and butted the paragraphs together. Natural flow at a short line length reads
+   as the subtler thing it should be. */
+/* NB: ch here resolves against .phil's own inherited 16px, not the 13px the
+   paragraphs are set at, so this is wider than the character count suggests —
+   32ch lands near 297px, roughly 45 characters a line. */
+/* Wider than the 32ch it was — a wider measure means fewer lines, so the block
+   is shorter as well as less thin, which is what lets the artwork stand taller
+   than it without either overflowing the panel. */
+.phil{text-align:left;max-width:42ch;margin:0}
 /* Sized to actually fit one screen alongside the heading and signature —
    this used to be a giant 2.6-3.4rem pull-quote, which made the whole
    section taller than the viewport and forced an internal scrollbar.
    Clamped against vh (not just vw) so it keeps fitting on shorter screens. */
+/* Jost 300, set small with a generous line-height and a narrow measure. The
+   brief is subtlety: the founder's words should feel quietly set beside the
+   artwork, not compete with it. Line-height carries the elegance here rather
+   than size or weight, which is what keeps it readable while staying light.
+   Matched exactly by .her-body p — the two panels are one continuous pan. */
 .phil p{
-  font-family:var(--serif);font-style:normal;font-weight:700;color:#111;
-  font-size:clamp(.85rem,1.7vh,1.05rem);line-height:1.38;
-  margin-bottom:.45rem;
+  font-family:var(--sans);font-style:normal;font-weight:300;color:#2a2118;
+  font-size:clamp(.82rem,1.6vh,.95rem);line-height:1.62;letter-spacing:.01em;
+  margin-bottom:.8rem;
 }
-.phil p.phil-close{font-weight:700;margin-top:.6rem}
+.phil p:last-child{margin-bottom:0}
+/* No emphasis on the closing line — it reads as a cadence, not a heading, and
+   the bold was breaking the even colour of the block. */
+.phil p.phil-close{font-weight:300;margin-top:0}
 .phil-more-toggle{
   display:inline;
   background:none;
@@ -377,15 +1187,85 @@ header.scrolled .brand-logo{filter:brightness(.5) saturate(1.3) contrast(1.15)}
   color:var(--gold);
   white-space:nowrap;
 }
-.phil-sig{margin-top:1.3rem;text-align:center;display:flex;flex-direction:column;align-items:center;gap:.2rem}
+.phil-sig{margin-top:1.9rem;text-align:center;display:flex;flex-direction:column;align-items:center;gap:.35rem}
+/* David's own signature artwork, supplied as black-on-white and converted to an
+   alpha mask (ink opaque, paper clear) so the colour still lives in CSS. It
+   carries the date beneath it, which is why no role line follows. The text
+   stays in the DOM for screen readers and is simply covered by the mask.
+
+   Not ink at all now — the same trick the heading above wears (see
+   .phil-heading): the fill matches the panel's own background tone, so there
+   is zero colour contrast between glyph and page. NOT var(--paper-cream),
+   though, and this one matters more than the heading's did — the signature
+   sits at ~88% down the panel, deep in the gradient's #e9dfcc end, nowhere
+   near the 45%-stop paper-cream token names. #eae1cf is the measured
+   composite at this exact spot (same canvas-sampling + hand-math cross-check
+   as the heading, stable within 1 unit per channel across a phone screen and
+   two desktop heights) — using paper-cream here left a faint but real warm
+   halo around the signature, because the fill was measurably lighter than
+   the parchment actually is at that depth in the panel.
+
+   The signature becomes legible purely through the same dark-top-left /
+   light-bottom-right filter pairing the heading uses, carried by `filter`
+   rather than `text-shadow` because this is masked SVG fill, not real text.
+   Applied to the <svg> itself rather than to its two internal rects
+   individually: the signature is drawn as a write-animation layer plus a
+   settled fill-in layer stacked on top of it (see .sig-fill below), and
+   filtering the outer element composites both first, so the shadow reads as
+   one groove rather than doubling up while the fill-in is arriving.
+
+   The payoff is in the write-on animation above: because the shadow is a
+   filter on the live rendered shape, not a separately-drawn layer, it
+   updates every frame as the stroke mask reveals more of the signature — so
+   what plays is not ink flowing across the page, it is the groove itself
+   being cut in, stroke by stroke, in step with the pen. `color` drives the
+   SVG's currentColor fill; no opacity fade on top of it, unlike the ink
+   version — the shadow now carries all of the legibility, the way it does
+   for the heading, and fading it further would fade the shadow with it.
+
+   The two passes are NOT the heading's values reused — they only look like
+   it at a glance. Proven by isolating the signature on a flat backdrop that
+   exactly matches its own fill (no parchment artwork nearby to blame): the
+   light pass was visibly winning, on its own, independent of anything else on
+   the page. Two compounding reasons, both specific to thin cursive linework
+   rather than bold serif letterforms: the light pass was both stronger
+   (.6 opacity, 1.5px blur) than the dark one (.42, 1px) — an imbalance a
+   heavy letter's own ink can absorb but a near-invisible fill cannot — AND
+   this signature's strokes loop back over themselves (the flourish under the
+   name, the crossings in the capitals), so at every self-intersection two
+   nearby copies of that already-brighter highlight land on top of each other
+   and compound, blooming into a visible white line exactly at the loops. The
+   fix is symmetry: equal blur, equal offset, and the dark pass nudged UP to
+   match the light one's opacity instead of the light pass staying stronger —
+   so no self-crossing has a dominant colour to bloom into. Offsets are also
+   tightened from the heading's 1px to .6px, proportional to strokes roughly a
+   fifth as thick as a bold heading letter. */
 .phil-sig-name{
-  display:block;font-family:'Pinyon Script',cursive;font-size:1.75rem;color:var(--navy);line-height:1;
+  display:block;width:min(320px,72%);height:auto;aspect-ratio:560 / 257;
+  color:#eae1cf;
+  overflow:visible;
+  filter:
+    drop-shadow(-.6px -.6px .6px rgba(64,50,30,.5))
+    drop-shadow(.6px .6px .6px rgba(255,252,244,.42));
 }
-.phil-sig-date{
-  display:block;font-family:var(--sans);font-size:.55rem;
-  letter-spacing:.28em;text-transform:uppercase;color:var(--gold);
+/* The finished signature waits underneath and snaps in — no fade — once the
+   writing has run, catching the hairline exits a round stroke cannot quite
+   reach. Instant on purpose: a visible fade here was a second event on top of
+   an animation that was already fully legible stroke by stroke (see FILL_MS
+   in SignatureMark.tsx), which read as the signature "getting clearer" after
+   it had, by every other signal, already finished. transitionDuration comes
+   from that component as an inline style (FILL_MS), so it always wins over
+   the var() fallback below regardless of what the fallback says. */
+.sig-fill{opacity:0;transition:opacity var(--sig-fill,0ms) ease}
+.sig-svg.sig-written .sig-fill{opacity:1}
+@media(prefers-reduced-motion:reduce){
+  .sig-fill{transition-duration:.01ms}
 }
-#belief p{color:var(--ink-mute);font-size:.88rem;font-weight:200;max-width:52ch;margin:1.6rem auto 0}
+/* Scoped to a direct child of the wrap. As `#belief p` this reached into the
+   Philosophy quote as well, and an ID beats `.phil p` on specificity — so the
+   quote rendered at --ink-mute/200 (rgb 110,107,96) instead of the Heritage
+   ink it is meant to match, which is why it read washed out beside Heritage. */
+#belief > .wrap > p{color:var(--ink-mute);font-size:.88rem;font-weight:200;max-width:52ch;margin:1.6rem auto 0}
 
 /* ================ COLLECTION CHAPTERS ================ */
 .sec-band{padding:5.5rem 0 0;text-align:center;background:var(--ivory)}
@@ -442,7 +1322,7 @@ header.scrolled .brand-logo{filter:brightness(.5) saturate(1.3) contrast(1.15)}
   font-family:var(--serif);font-style:italic;text-transform:none;font-size:1.08rem;
   letter-spacing:.05em;color:var(--gold);
 }
-.styles .yours a:hover{color:var(--navy)}
+.styles .yours a:hover{color:var(--gold)}
 .paper{background:var(--paper)}
 
 /* ================ SHAPES ================ */
@@ -495,33 +1375,60 @@ header.scrolled .brand-logo{filter:brightness(.5) saturate(1.3) contrast(1.15)}
   align-items:center;justify-content:center;text-align:left;width:100%;margin-top:.4rem;
 }
 .her-photo{position:relative;width:100%;background:none;border:none;padding:0;overflow:visible}
-/* overflow must stay visible — the shadow below would otherwise get clipped
-   by its own container. */
-.her-photo-crop{overflow:visible;position:relative}
-/* Suggests the frame casting its own shadow down onto the nameplate below
-   it — positioned in the transparent gap baked into the source image
-   (frame ends ~85%, plate begins ~88% of image height). */
-.her-photo-crop::after{
-  content:'';position:absolute;left:0;right:0;top:76%;height:22%;
-  background:radial-gradient(ellipse 55% 55% at 50% 38%,rgba(20,14,6,.4),rgba(20,14,6,0) 72%);
-  pointer-events:none;
+/* The framed portrait, alone and centred. The asset is a white-backed PNG
+   keyed to true transparency and trimmed to its own artwork, so its edges are
+   the frame's edges and a drop-shadow traces the real silhouette — including
+   the ornamental crests at top and bottom centre, which a rectangular shadow
+   would miss.
+
+   That silhouette is NOT a rectangle, which a box-shadow has no way to know:
+   measured off the asset's own alpha channel, the ornaments reach the very
+   edge of the canvas at some points (the opaque bounding box is the full
+   608x817) while the plain runs of moulding sit 4px in at mid-height and 2px
+   in at mid-width. A box-shadow drawn on the element's rectangular border box
+   therefore traces a shape the frame does not actually have, and pulls away
+   from the moulding wherever the frame is inset from its own canvas. */
+.her-photo-crop{
+  overflow:visible;position:relative;
+  display:flex;flex-direction:column;align-items:center;
+  /* The nameplate no longer shares the column, so the frame takes the full
+     width and the whole of the old height ceiling — 1.3438 is its own
+     height-to-width ratio, which is what that ceiling now divides through. */
+  --frame-w:min(100%,calc(60vh / 1.3438));
 }
-.her-photo-crop img{
-  width:100%;height:auto;max-width:100%;max-height:60vh;object-fit:contain;object-position:center;
-  margin:0;display:block;
-  /* Soft, offset shadow following the image's actual silhouette — frame
-     curves, the transparent gap, and the plate — with no clipping, so the
-     blur tapers off naturally instead of hitting a hard edge. Offset
-     down-right (as if lit from the upper-left) reads as resting against a
-     wall rather than floating flat. */
-  filter:drop-shadow(10px 16px 14px rgba(20,14,6,.32)) drop-shadow(3px 6px 5px rgba(20,14,6,.28));
+.her-frame{flex-shrink:0;line-height:0;width:var(--frame-w)}
+.her-frame img{width:100%;height:auto;display:block}
+/* Lit from the upper right, falling to the lower left — matching the
+   PHOTOGRAPH's own light, not an invented one: the highlight on the founder's
+   own face sits toward the right of frame (forehead, temple, the near edge of
+   the beard), which only a light source up and to the right explains. Unlike
+   the Philosophy panel's parchment, which is illustrated and free to answer
+   to whatever light the page invents, this is a real photograph with real
+   light already fixed in it — the shadow has to agree with the face, not with
+   the panel next to it.
+
+   Kept as the original two-layer pair — a tight contact shadow plus a wider
+   ambient one — at its original strength, only mirrored. A single soft
+   shadow at 15% and 34px blur was tried and effectively vanished against
+   this cream ground: a heavy carved frame needs a shadow with enough contact
+   darkness to sit against the wall, and that near edge is also what keeps
+   the asset's own pale keyed edge from reading as a bright outline. */
+.her-frame img{
+  filter:drop-shadow(-10px 16px 14px rgba(20,14,6,.32)) drop-shadow(-3px 6px 5px rgba(20,14,6,.28));
 }
 .her-caption{display:flex;flex-direction:column;align-items:center;gap:.5rem;margin-top:.4rem}
 .her-caption-name{font-family:'Pinyon Script',cursive;font-size:1.9rem;color:var(--gold);line-height:1}
 .her-caption-role{font-family:var(--sans);font-size:.58rem;letter-spacing:.32em;text-transform:uppercase;color:var(--navy)}
-.her-body{max-width:42ch;margin:0}
+/* Wider than the 32ch it was: at that measure the rag swung from 277px down to
+   a 124px stub on the last line, and there was not room to keep "David C.
+   Stanton" whole. text-wrap:pretty lets the browser balance the remaining rag
+   and stops it leaving orphans at the end of a paragraph. */
+.her-body{max-width:40ch;margin:0}
+.her-body p{text-wrap:pretty}
+.nb{white-space:nowrap}
 #heritage .eyebrow{color:var(--gold)}
-.her-body p{color:#2a2118;font-weight:300;font-size:clamp(.9rem,1.7vh,1.05rem);line-height:1.5;margin-bottom:.7rem}
+/* Same face, weight, size and rhythm as .phil p — see the note there. */
+.her-body p{font-family:var(--sans);color:#2a2118;font-weight:300;font-size:clamp(.82rem,1.6vh,.95rem);line-height:1.62;letter-spacing:.01em;margin-bottom:.85rem}
 
 
 /* ================ JOURNEY ================ */
@@ -539,14 +1446,26 @@ header.scrolled .brand-logo{filter:brightness(.5) saturate(1.3) contrast(1.15)}
 #journey .eyebrow{color:var(--gold-bright);background:none;padding:0;border-radius:0;display:inline-block}
 .journey-grid{display:grid;grid-template-columns:repeat(4,1fr)}
 .j-step{padding:2.6rem 2.2rem;text-align:center}
+/* Cormorant Garamond defaults to OLD-STYLE figures: 3 and 4 carry descenders
+   while 1 and 2 sit on the baseline, so each digit landed a different distance
+   below the circle's centre (measured: 2, 2, 5, 4px). No single nudge can
+   correct four different errors — lining figures give all four one shared
+   metric, after which flex centring is honest and one small optical shift
+   squares them up. */
 .j-num{
   display:inline-flex;align-items:center;justify-content:center;
   width:44px;height:44px;border:1px solid var(--gold-bright);border-radius:50%;
   font-family:var(--serif);font-size:1.2rem;line-height:1;color:var(--gold-bright);margin-bottom:1.1rem;
   padding:0;text-align:center;
+  font-variant-numeric:lining-nums tabular-nums;
+  font-feature-settings:"lnum" 1,"tnum" 1;
 }
+.j-num > *{display:block}
 .j-step h3{font-family:var(--serif);font-weight:400;font-size:1.5rem;margin:0 0 .7rem;color:var(--ivory)}
-.j-step p{font-size:.82rem;color:rgba(251,249,244,.72);font-weight:200}
+/* A soft neutral grey rather than the warm mute, which against this navy read
+   as a dim gold and put the supporting line in competition with the numerals
+   and the heading. Grey lets the step titles carry the section. */
+.j-step p{font-size:.82rem;color:#B4B8BF;font-weight:200}
 
 
 /* ================ ASSURANCE ================ */
@@ -567,48 +1486,226 @@ header.scrolled .brand-logo{filter:brightness(.5) saturate(1.3) contrast(1.15)}
 #word cite{display:block;font-family:var(--sans);font-style:normal;font-size:.64rem;letter-spacing:.4em;text-transform:uppercase;color:var(--gold);margin-top:2.2rem}
 
 /* ================ FAQ ================ */
-#faq{padding:8rem 0;background:var(--ivory)}
+#faq{padding:8rem 0;background:var(--ivory);--faq-h-size:clamp(3rem,6vw,4.8rem)}
 #faq .sec-head.faq-head{max-width:780px;margin:0 auto 0 0;text-align:left;padding-bottom:0;margin-bottom:0}
 #faq .sec-head.faq-head .eyebrow{display:block;margin-bottom:.15rem}
 .faq-toggle{
+  position:relative;
   display:flex;align-items:center;justify-content:space-between;gap:1.4rem;
   width:100%;margin:.2rem 0 0;text-align:left;
 
-  background:none;border:none;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  /* Borders kept at 1px but transparent: they hold the box model exactly as
+     it was, while the visible rules are painted by ::after, which can be
+     shortened on hover. */
+  background:none;border:none;border-top:1px solid transparent;border-bottom:1px solid transparent;
   padding:.6rem .2rem 1.1rem;cursor:pointer;color:var(--ink);
+  /* The padding is deliberately uneven so the big serif sits optically right
+     between the rules. But align-items:center centres on the CONTENT box, and
+     the rules are drawn on the BORDER box — so the circle ended up half the
+     padding difference too high. Derived from the padding rather than typed as
+     a magic 4px, so it stays true if the padding is ever retuned. */
+  --icon-nudge:calc((1.1rem - .6rem) / 2);
+  /* Purely so the ::before pill's `em` stops resolve against the heading's
+     own size. Nothing here renders at this size: the label overrides it,
+     the circle is font-size:0, and every padding/gap on the row is in rem. */
+  font-size:var(--faq-h-size);
   transition:background .3s,color .3s;
 }
-.faq-toggle:hover{background:rgba(174,140,76,.05);color:var(--gold)}
+/* A navy pill that sweeps in from the left on hover — nothing at rest.
+   Three things make it read as silk rather than as a highlight box:
+
+   1. It is a true pill. border-radius pins to half the height, so the left
+      cap is a clean semicircle, and --pill-lead carries that cap OUT past
+      the row's left edge so the curve has room to open away from the "B"
+      instead of crowding it. The lead is held inside the wrap's own gutter
+      (5vw desktop, 1.5rem/1.2rem phone) so it can never cause h-scroll.
+   2. The solid navy is measured in em, not %. "Before you ask." is a fixed
+      5.937em wide in this face at every breakpoint (verified 430px→1614px),
+      so 6.24em clears the period by ~0.3em and tracks the type exactly
+      however the clamp resizes it. Then a long dissolve — no right cap is
+      ever seen, because the fill is already gone by then.
+   3. The far stop is min()'d against 80% so the dissolve always completes
+      before the + circle, which sits at 85–94% depending on width. The
+      solid stop tops out near 66% (74% at 320px), so the two can never
+      cross and produce a hard edge.
+
+   The reveal is a clip-path inset carrying its own `round`, so what grows
+   is itself a pill: the leading edge stays a rounded cap the whole way
+   across rather than a wiping straight edge. top/bottom sit on the padding
+   box, leaving the 1px rules untouched. */
+.faq-toggle{
+  /* Half the row's border-box height — the pill's cap radius. Derived, not
+     typed: 1.22em of line box (uni-h's line-height) + 1.7rem of padding +
+     2px of border, halved. Stays true at every breakpoint. */
+  --cap-r:calc(.61em + .85rem + 1px);
+  /* Carries the pill right just far enough that the + sits dead centre in
+     the right cap: the icon's own centre is 3.2px + half its box in from the
+     row's edge, and the cap's centre must land on it. */
+  /* How far the cap is carried out past the row's left edge, so its curve
+     opens away from the "B" instead of crowding it. Held inside the wrap's
+     gutter so it can never cause h-scroll. */
+  --pill-lead:min(52px,3.6vw);
+  /* The opaque run: from the cap, across the whole phrase, and .3em past the
+     period. 5.937em is the measured width of "Before you ask." in this face
+     — constant at every breakpoint (verified 320px→1614px) — so the navy
+     always clears the type exactly, however the clamp resizes it. */
+  --pill-solid:calc(var(--pill-lead) + 4.2px + 5.937em + .3em);
+  /* Where the rule picks up: at the pill's flat top, one cap-radius in from
+     its leftmost point, so the line emerges from the shape without a seam.
+     Floored at 0 so a large lead can never drag it outside the row. */
+  --rule-inset:max(0px,calc(var(--cap-r) - var(--pill-lead) - 1px));
+}
+/* The pill sits at the LEFT, carrying the heading, and dissolves away to the
+   right before it reaches the +. The mark keeps its own original treatment.
+   The right edge stops short of the icon box so the ramp is fully spent
+   before the + rather than tinting it. Spans the border box vertically so
+   the opaque end covers the rules beneath it. */
+.faq-toggle::before{
+  content:'';position:absolute;top:-1px;bottom:-1px;right:auto;
+  left:calc(var(--pill-lead) * -1 - 1px);
+  width:calc(100% + var(--pill-lead) - 2.2px - var(--faq-icon-box) - .8em);
+  /* Left side only. Rounding both ends clipped a curve into the far end of
+     the band where the gradient is still ramping, which read as a pill nose
+     instead of a wash. Square on the right is invisible — the gradient is at
+     zero opacity by the time it reaches that edge. */
+  border-radius:999px 0 0 999px;
+  background:linear-gradient(to right,
+    var(--navy) 0,
+    var(--navy) var(--pill-solid),
+    transparent 100%
+  );
+  /* Instant, not faded — see the note on .faq-toggle-txt below. The fill and
+     the ink have to land on the same frame, so neither is transitioned. */
+  opacity:0;pointer-events:none;z-index:0;
+}
+/* The rules are drawn here rather than as the button's own borders, because
+   they have to be able to STOP. The button keeps 1px transparent borders so
+   the box model is untouched, and this sits on the border box to put the
+   lines exactly where they always were. */
+.faq-toggle::after{
+  content:'';position:absolute;top:-1px;bottom:-1px;left:0;right:0;
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+  pointer-events:none;z-index:0;
+}
+/* Held on while the accordion is open, and only released when it is closed
+   again — the navy is the panel's open state, not just a pointer state. */
+.faq-toggle:hover::before,
+.faq-toggle[aria-expanded="true"]::before{opacity:1}
+.faq-toggle:hover::after,
+.faq-toggle[aria-expanded="true"]::after{left:var(--rule-inset)}
 .faq-toggle-txt{
+  position:relative;z-index:1;
   font-family:var(--serif);font-weight:700;
   letter-spacing:.005em;text-transform:none;color:var(--navy);line-height:1.1;
-  transition:color .3s;
 }
-.faq-toggle-txt.uni-h{font-size:clamp(3rem,6vw,4.8rem)!important}
-.faq-toggle:hover .faq-toggle-txt{color:var(--gold)}
+/* The pill's em maths reads this, and so does the heading itself — declared
+   once so the two can never fall out of step. */
+.faq-toggle-txt.uni-h{font-size:var(--faq-h-size)!important}
+/* Switches on the same frame as the fill, with no transition on either.
+   Any shared fade is worse than it sounds here: ivory→navy and navy→ivory
+   cross at exactly the same slate midpoint, so the words disappear into the
+   background partway through. Staggering them fixed that but produced the
+   two-step it replaced — fill first, ink after. Landing both instantly is
+   the only version with neither artefact. */
+.faq-toggle:hover .faq-toggle-txt,
+.faq-toggle[aria-expanded="true"] .faq-toggle-txt{color:var(--ivory)}
+/* Same two-bar construction as .fx above — see the note there. This also
+   retires the translateY(-2px) nudge the mobile block used to need to fake
+   the centring of the typed glyph. */
+/* Every expand/collapse mark in this section rides one vertical axis. The two
+   circles are different sizes, and since both are flush to the same right
+   edge, matching their EDGES leaves their centres half the size difference
+   apart — which is exactly the misalignment that showed. The small mark is
+   inset by that half-difference so the centres, not the edges, agree. */
+#faq{--faq-icon-box:44px;--faq-fx-box:28px}
 .faq-toggle-icon{
-  font-family:var(--sans);font-weight:300;font-size:1.4rem;color:var(--gold);
-  flex-shrink:0;width:44px;height:44px;border:1px solid var(--gold-faint);border-radius:50%;
+  position:relative;z-index:1;top:var(--icon-nudge,0px);font-size:0;color:var(--navy);
+  flex-shrink:0;width:var(--faq-icon-box);height:var(--faq-icon-box);
+  /* Navy at the same .3 alpha the gold ring used, so the ring keeps its old
+     visual weight against the solid navy glyph inside it. */
+  border:1px solid rgba(11,23,48,.3);border-radius:50%;
   display:flex;align-items:center;justify-content:center;transition:transform .35s,background .3s,color .3s;
 }
-.faq-toggle[aria-expanded="true"] .faq-toggle-icon{transform:rotate(45deg);background:var(--gold);color:var(--ivory);border-color:var(--gold)}
+.faq-toggle-icon::before,.faq-toggle-icon::after{
+  content:"";position:absolute;top:50%;left:50%;background:currentColor;
+}
+.faq-toggle-icon::before{width:17px;height:1px;transform:translate(-50%,-50%)}
+.faq-toggle-icon::after{width:1px;height:17px;transform:translate(-50%,-50%)}
+/* The fade is fully spent before it reaches the mark, so the mark always sits
+   on clean ivory and can carry its own navy without competing with the fill. */
+.faq-toggle[aria-expanded="true"] .faq-toggle-icon{transform:rotate(45deg);background:var(--navy);color:#fff;border-color:var(--navy)}
+.faq-toggle[aria-expanded="true"] .faq-toggle-icon::before{height:1.5px}
+.faq-toggle[aria-expanded="true"] .faq-toggle-icon::after{width:1.5px}
 .faq-list[hidden]{display:none}
-.faq-list{max-width:780px;margin:0 auto 0 0}
+/* Full width, matching the toggle above it. Capping the list at 780px while
+   the toggle ran the whole wrap put the two sets of icons on axes 357px apart
+   on a desktop — they only looked aligned on a phone, where both happened to
+   be the same width. The reading measure is kept on the question text itself
+   instead, so the rules and the marks line up with the heading's while the
+   words stay a comfortable length. */
+.faq-list{max-width:none;margin:0}
 .faq-item{border-bottom:1px solid var(--line)}
 .faq-q{
+  position:relative;
   width:100%;background:none;border:none;cursor:pointer;color:var(--ink);
   font-family:var(--serif);font-size:1.25rem;font-weight:400;text-align:left;
   padding:1.6rem .2rem;display:flex;align-items:center;gap:1.4rem;transition:color .3s,background .3s;
 }
-.faq-item:hover .faq-q{background:rgba(174,140,76,.05)}
-.faq-txt{flex:1}
-.faq-q:hover{color:var(--gold)}
-.faq-q .fx{
-  font-family:var(--sans);font-weight:400;font-size:1rem;color:var(--gold);transition:transform .35s,background .3s;
-  flex-shrink:0;width:28px;height:28px;border:1px solid var(--gold-faint);border-radius:50%;
-  display:flex;align-items:center;justify-content:center;
+/* A short wash gathered at the right edge, dissolving away to the left. No
+   pill: square corners throughout, so it reads as light falling off the edge
+   rather than as a shape laid on the row. Kept narrow and faint — this is a
+   row in a list, not the section's header, so it should barely register.
+   The left edge is invisible regardless, the gradient being at zero opacity
+   by the time it arrives there. */
+.faq-q::before{
+  content:'';position:absolute;top:0;bottom:0;left:auto;right:0;
+  width:min(30%,180px);
+  background:linear-gradient(to right,
+    transparent 0,
+    rgba(11,23,48,.11) 100%
+  );
+  opacity:0;pointer-events:none;z-index:0;
+  transition:opacity .25s ease;
 }
-.faq-item.open .fx{transform:rotate(45deg);background:var(--gold);color:var(--ivory);border-color:var(--gold)}
+/* Held while the row is open, matching the heading's own behaviour. */
+.faq-item:hover .faq-q::before,
+.faq-item.open .faq-q::before{opacity:1}
+/* Lifted above the wash. Without this the fill would paint over both. */
+.faq-txt{position:relative;z-index:1;flex:1;max-width:62ch}
+.faq-q .fx{z-index:1}
+.faq-q:hover{color:var(--gold)}
+/* The + and × are drawn as two bars rather than typed as glyphs. A text "+"
+   is centred on its line box, not on the circle: the body's 1.75 line-height
+   and the glyph's own optical centre both push it off, which is the tilt that
+   was showing up. Two absolutely-centred bars have no such offset, and
+   rotating the container turns the + into a × that stays exactly centred. */
+.faq-q .fx{
+  position:relative;z-index:1;font-size:0;color:var(--navy);
+  transition:transform .35s,background .3s,border-color .3s,color .3s;
+  flex-shrink:0;width:var(--faq-fx-box);height:var(--faq-fx-box);
+  /* Navy at the same .3 alpha the gold ring used, so the ring keeps its old
+     visual weight against the solid navy glyph inside it. */
+  border:1px solid rgba(11,23,48,.3);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  /* Driven to the row's right edge regardless of how short the question is,
+     then inset by half the size difference so its centre — not its edge —
+     agrees with the big toggle's mark above. */
+  margin-left:auto;
+  margin-right:calc((var(--faq-icon-box) - var(--faq-fx-box)) / 2);
+}
+.faq-q .fx::before,.faq-q .fx::after{
+  content:"";position:absolute;top:50%;left:50%;background:currentColor;
+}
+.faq-q .fx::before{width:11px;height:1px;transform:translate(-50%,-50%)}
+.faq-q .fx::after{width:1px;height:11px;transform:translate(-50%,-50%)}
+/* Open state: a true white x, thickened. At 1px a bar rotated 45deg is never
+   pixel-aligned, so it antialiases toward grey — and it washes out by a
+   different amount at 17px than at 11px, which is why the two circles looked
+   like different tones despite being the identical ivory. 1.5px and pure white
+   render as the same clean mark at both sizes. */
+.faq-item.open .fx{transform:rotate(45deg);background:var(--navy);color:#fff;border-color:var(--navy)}
+.faq-item.open .fx::before{height:1.5px}
+.faq-item.open .fx::after{width:1.5px}
 .faq-a{max-height:0;overflow:hidden;transition:max-height .45s ease}
 .faq-a p{font-size:.9rem;color:var(--ink-soft);font-weight:200;padding:0 .2rem;max-width:62ch;margin-bottom:.9rem}
 .faq-a p:last-child{margin-bottom:0;padding-bottom:1.8rem}
@@ -652,24 +1749,77 @@ footer{position:sticky;bottom:0;z-index:0}
   content:'';position:absolute;left:0;top:0;height:100%;width:1px;
   background:rgba(255,255,255,.85);pointer-events:none;
 }
-.contact-opt:hover{background:rgba(174,140,76,.06)}
-.cc-icon{width:26px;height:26px;color:var(--gold);margin:0 0 1.3rem;display:block;transition:color .3s,transform .4s}
-.contact-opt:hover .cc-icon{color:var(--navy);transform:translateY(-3px)}
+/* Hover changes one thing: the label goes gold. Previously the icon went gold
+   to navy while the label went navy to gold — two elements crossing in opposite
+   directions, plus a lift and a background wash. Three simultaneous moves in a
+   row of three cards is what made it feel unsettled. The icons simply stay
+   gold throughout. */
+/* background-color is in the list for Call's sake: its glyph is a mask on a
+   span tinted by `background-color:currentColor`, not an svg filled by
+   `color`. Without it the other two faded and Call snapped. */
+.cc-icon{width:26px;height:26px;color:var(--gold);margin:0 0 1.3rem;display:block;transition:color .3s,background-color .3s,filter .3s}
+/* White on the panel's own cream ground reads as nearly invisible on its own,
+   so a cast shadow sits beneath the glyph on hover — enough to trace its
+   silhouette against the light background. It is a straight-down, bird's-eye
+   shadow: the light is directly overhead rather than raking in from one side,
+   so BOTH passes are offset (0,0) — no x or y shift at all — and only the
+   blur radius differs between them. A sideways offset is what a shadow gets
+   from an angled source; a source pointed straight down casts symmetrically
+   in every direction, which is why any lateral nudge here would read as light
+   coming from the side rather than from above. The colour is a warm taupe — a
+   dimmed, desaturated version of the panel's own ink, the way a real shadow
+   is a dark tint of the surface it falls on, not an imported colour. The
+   tighter pass is the contact shadow right at the glyph's edge; the wider,
+   fainter pass is the soft ambient falloff a few millimetres out. */
+.contact-opt:hover .cc-icon{
+  color:#fff;
+  filter:drop-shadow(0 0 3px rgba(90,74,58,.4)) drop-shadow(0 0 10px rgba(90,74,58,.24));
+}
 /* Call reuses the header's phone glyph (mask-image) instead of an inline
    SVG, for visual consistency between the two. Its source silhouette is
    wider than tall (~1.2:1); widen the box so it reads at the same visual
    weight as the other cc-icons instead of shrinking to fit a square. */
-.cc-icon-mask{
-  width:31px;background-color:currentColor;
+/* Unmasked wrapper: it carries the size and, on hover, the drop-shadow. */
+.cc-icon-mask{width:31px;background-color:transparent}
+/* The masked layer. background-color follows the inherited colour, so it
+   tracks the same transition the svg icons get through `color`. */
+.cc-mask-glyph{
+  display:block;width:100%;height:100%;background-color:currentColor;
+  transition:background-color .3s;
   -webkit-mask-position:center;mask-position:center;
   -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
   -webkit-mask-size:contain;mask-size:contain;
 }
 .cc-label{
+  position:relative;
   font-family:var(--serif);font-weight:500;font-size:1.5rem;color:var(--navy);line-height:1;
   padding-bottom:.35rem;transition:color .3s;
 }
+/* A rule draws in from the centre on hover — the same gesture .discover uses
+   elsewhere on the site. The icons are already gold at rest, so a colour change
+   alone left the card merely matching itself; this gives the hover a direction
+   and a beginning, which colour cannot. */
+/* Draws left to right, and erases left to right too. The origin swap is what
+   makes the second half work: scaling from the LEFT on the way in grows the
+   rule rightward, and returning the origin to the RIGHT on the way out makes
+   the left end travel right to meet it. Animating width alone would draw in
+   correctly but retreat back the way it came, which reads as a rewind rather
+   than as an erase. */
+.cc-label::after{
+  /* 2px rather than a hairline: white on ivory is a very low-contrast pair,
+     and the extra weight is what lets the line register at all without
+     resorting to a glow. */
+  content:'';position:absolute;left:0;right:0;bottom:0;height:2px;
+  background:#fff;
+  transform:scaleX(0);transform-origin:right center;
+  transition:transform .42s cubic-bezier(.5,.05,.2,1);
+}
 .contact-opt:hover .cc-label{color:var(--gold)}
+.contact-opt:hover .cc-label::after,
+.contact-opt:focus-visible .cc-label::after{transform:scaleX(1);transform-origin:left center}
+@media(prefers-reduced-motion:reduce){
+  .cc-label::after{transition-duration:.01ms}
+}
 .cc-sub{
   font-size:.78rem;color:var(--ink-mute);font-weight:300;
   margin-top:.85rem;max-width:24ch;line-height:1.5;transition:color .3s;
@@ -751,19 +1901,61 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
 .foot-col ul{list-style:none}
 .foot-col li{margin-bottom:.6rem}
 .foot-col a{font-size:.82rem;letter-spacing:.015em;color:rgba(251,249,244,.82);font-weight:300;transition:color .3s;white-space:nowrap}
-.foot-col a:hover{color:var(--gold-bright)}
+/* To full-strength ivory, not gold. The links already sit at 82% of it, so
+   hovering brings them up to the brightest value on the page rather than
+   changing hue — gold is reserved for the headings above them. */
+.foot-col a:hover{color:var(--ivory)}
 .foot-nav{justify-self:center;display:flex;flex-direction:column;align-items:center}
-.foot-nav-columns{display:grid;grid-template-columns:auto auto;gap:.6rem 2.2rem;justify-content:center}
-.foot-social{justify-self:end;display:flex;flex-direction:column;align-items:center}
-.foot-social ul{display:flex;gap:.85rem;flex-wrap:nowrap}
-.foot-social li{margin-bottom:0}
-.foot-social a{
-  display:flex;align-items:center;justify-content:center;width:46px;height:46px;
-  border:1px solid rgba(251,249,244,.18);border-radius:50%;
-  color:rgba(251,249,244,.92);transition:transform .3s,color .3s,opacity .3s,border-color .3s;opacity:.95;
+/* Two centred lines of three. Capped at a width that fits three comfortably,
+   so the wrap point is decided by the layout rather than left to chance at
+   whatever the viewport happens to be. Separators are drawn between items
+   rather than typed, so no stray dot trails the last link and none can wrap
+   onto a line alone — and the one that would fall at the start of the second
+   row is suppressed. */
+/* A three-column grid, not a wrapping flex row. Letting it wrap meant the break
+   fell wherever the labels happened to run out of width — five on the first
+   line and one stranded below. A grid states the shape: three, then three.
+   Equal columns keep the two rows in register, and centring the whole grid puts
+   the middle column directly under the heading. */
+/* The two lines are one block, so they are set closer to each other than to
+   anything around them — the space that used to sit between them has been
+   moved outside, above and below, where it does the work of separating the
+   navigation from the heading and from Join Our Journey. */
+.foot-nav-row{
+  display:grid;grid-template-columns:repeat(3,1fr);
+  gap:.85rem 0;list-style:none;
+  width:max-content;margin:0 auto;
+  justify-items:center;
 }
-.foot-social a:hover{transform:translateY(-2px);opacity:1;color:var(--gold-bright);border-color:var(--gold-bright)}
-.foot-social-icon{display:block;width:20px;height:20px;overflow:visible}
+/* Only the navigation column: Join Our Journey keeps its own rhythm. */
+.foot-nav h4{margin-bottom:2.1rem}
+.foot-nav-row li{position:relative;margin:0;padding:0 1.15rem}
+/* The V is made HORIZONTALLY: the top row spreads a little wider, the bottom
+   row draws a little tighter, so the block narrows as it descends. Every word
+   still sits on its own row's baseline.
+   An earlier version dipped the middle of each row instead, which put Heritage
+   and FAQ 7px below their neighbours — that reads as two words sagging, not as
+   a shape. The centre column never moves, so FAQ stays under the heading. */
+.foot-nav-row li:nth-child(1){transform:translateX(-9px)}
+.foot-nav-row li:nth-child(3){transform:translateX(9px)}
+.foot-nav-row li:nth-child(4){transform:translateX(9px)}
+.foot-nav-row li:nth-child(6){transform:translateX(-9px)}
+.foot-social{justify-self:end;display:flex;flex-direction:column;align-items:center}
+/* Gap is measured box-to-box, but each box carries 11px of padding around its
+   glyph, so the gap you SEE is this value plus 22px. */
+.foot-social ul{display:flex;gap:1.25rem;flex-wrap:nowrap}
+.foot-social li{margin-bottom:0}
+/* Bare marks, no rings. Six bordered discs sat directly under the round crest
+   and read as a row of buttons — a utility convention. The glyph alone, given
+   room, reads as editorial, which is the register the rest of the page is in.
+   The box stays 44px so the touch target survives losing the ring. */
+.foot-social a{
+  display:flex;align-items:center;justify-content:center;
+  width:44px;height:44px;
+  color:rgba(251,249,244,.82);transition:transform .3s,color .3s,opacity .3s;opacity:.95;
+}
+.foot-social a:hover{transform:translateY(-2px);opacity:1;color:var(--ivory)}
+.foot-social-icon{display:block;width:22px;height:22px;overflow:visible}
 .foot-social-img{
   display:block;width:20px;height:20px;object-fit:contain;
   filter:brightness(0) invert(1);transition:filter .3s;
@@ -785,15 +1977,43 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
 @media(max-width:640px){.col-grid > .col-card:nth-child(n+5){display:block}}
 .col-card{position:relative;background:#fff;border:1px solid var(--line);transition:box-shadow .45s,transform .45s}
 .col-card:hover{box-shadow:0 24px 60px -28px rgba(11,23,48,.3);transform:translateY(-4px)}
-.col-photo{display:block;position:relative;overflow:hidden;aspect-ratio:1/1;width:100%;
+/* 4:5 — the proportions of the artwork itself (900x1125), so the frame is
+   sized to the picture rather than the picture cropped to the frame. Every
+   card shares it, which is what makes the four identical in structure. */
+.col-photo{display:block;position:relative;overflow:hidden;aspect-ratio:4/5;width:100%;
   padding:0;border:0;margin:0;cursor:pointer;
   background:radial-gradient(ellipse 90% 80% at 50% 110%,var(--navy-glow),transparent 60%),var(--navy)}
 .col-photo,.col-title{touch-action:manipulation}
-.col-photo .img{position:absolute;inset:0;background-size:cover;background-position:center;
-  transform:scale(1.02);transition:transform 7s ease}
-.col-card:hover .col-photo .img{transform:scale(1.12)}
-.col-photo .tint{position:absolute;inset:0;background:linear-gradient(180deg,rgba(11,23,48,.05),rgba(11,23,48,.28));transition:opacity .8s}
-.col-card:hover .col-photo .tint{opacity:.45}
+/* Nothing is laid over the artwork — no tint, no gradient, no vignette — so
+   it reads at full brightness exactly as supplied.
+
+   The hover zoom pushes into whatever the cursor is over rather than the
+   centre: the pointer's position within the card is written to --ox/--oy on
+   mousemove and drives transform-origin, so the point under the cursor is
+   the point that holds still. Origin eases on its own, shorter curve, which
+   is what turns a moving cursor into a smooth pan rather than a jump.
+
+   Transform only, so nothing reflows and the card cannot shift. Leaving is
+   just the scale unwinding — the origin is deliberately NOT reset, because
+   at scale 1 it has no effect anyway, and animating it back to centre while
+   the scale falls would drag the picture sideways on the way out.
+
+   No will-change here on purpose: promoting the layer would have it
+   rasterised at rest size and then stretched, which is exactly the softness
+   this is meant to avoid. Letting the browser re-raster keeps it sharp. */
+.col-photo .img{
+  position:absolute;inset:0;background-size:cover;background-position:center;
+  transform-origin:var(--ox,50%) var(--oy,50%);
+  transition:transform .55s cubic-bezier(.22,.61,.36,1),transform-origin .25s ease-out;
+}
+/* Pointer-driven, so it is offered only where there is a real pointer to
+   track — never on touch, where :hover sticks after a tap. */
+@media(hover:hover) and (pointer:fine){
+  .col-photo:hover .img{transform:scale(1.16)}
+}
+@media(prefers-reduced-motion:reduce){
+  .col-photo:hover .img{transform:none}
+}
 .col-card>h3{font-weight:400;font-size:1.35rem;letter-spacing:.03em;padding:0;margin:0}
 .col-title{
   width:100%;display:block;position:relative;background:none;border:0;margin:0;
@@ -831,9 +2051,12 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
 .type-a a{font-size:.66rem;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-mute);
   transition:color .3s,padding-left .3s;display:inline-block}
 .type-a a:hover{color:var(--gold);padding-left:.4rem}
+/* Always gold within the David C. Stanton Collection browser — the bespoke
+   option is meant to read as distinct from the shelf styles around it,
+   whatever state the row is in. */
 .type-a .yours a{font-family:var(--serif);font-style:italic;text-transform:none;font-size:.98rem;
-  letter-spacing:.04em;color:var(--ink-mute)}
-.type-a .yours a:hover{color:var(--navy)}
+  letter-spacing:.04em;color:var(--gold)}
+.type-a .yours a:hover{color:var(--gold)}
 
 /* ================ RESPONSIVE ================ */
 @media(max-width:1020px){
@@ -855,12 +2078,19 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
   .foot-grid{gap:2rem;grid-template-columns:1fr;justify-items:center;text-align:center}
   .foot-social{justify-self:center}
   .foot-brand{align-items:center}
-  .foot-brand img{height:84px;margin-bottom:.4rem}
+  /* Drawn up under the crest so the heading reads as belonging to it rather
+     than as the next thing down the page. The grid's own row gap is left
+     alone — the other rows still need it. */
+  .foot-brand img{height:84px;margin-bottom:0}
+  .foot-brand{margin-bottom:-.5rem}
   .foot-col{width:100%;max-width:420px}
   .foot-col h4{margin-bottom:.8rem;text-align:center}
-  .foot-nav{justify-self:center}
-  .foot-nav-columns{display:grid;grid-template-columns:auto auto;justify-content:center;gap:.5rem 2.2rem;align-items:start}
-  .foot-nav-columns ul{display:flex;flex-direction:column;align-items:center;text-align:center}
+  /* Stacked from here down, so the block needs air beneath it as well as
+     above — otherwise the links run straight into Join Our Journey. */
+  .foot-nav{justify-self:center;margin-bottom:1rem}
+  .foot-nav h4{margin-bottom:1.35rem}
+  .foot-nav-row{gap:.7rem 0}
+  .foot-nav-row li{padding:0 1.15rem}
   .foot-social ul{justify-content:center}
   .foot-base{flex-direction:column;align-items:center;gap:.5rem;text-align:center}
 }
@@ -908,13 +2138,21 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
     gap:.6rem;
     margin-top:.4rem;
   }
+  /* The active indicator lengthens rather than swells. A bigger dot reads as
+     emphasis; a longer one reads as position — it is the piece of the sequence
+     you are standing on, which is what an indicator is for. The others stay
+     perfectly circular so the shape difference alone carries the meaning. */
   .col-dot{
-    width:8px;height:8px;border-radius:50%;
+    width:8px;height:8px;border-radius:99px;
     background:rgba(11,23,48,.25);
-    border:none;padding:0;cursor:pointer;
-    transition:background .3s, transform .3s;
+    border:none;padding:0;cursor:pointer;flex-shrink:0;
+    transition:background .38s cubic-bezier(.4,0,.2,1),width .38s cubic-bezier(.4,0,.2,1);
   }
-  .col-dot.active{background:var(--navy);transform:scale(1.2)}
+  .col-dot.active{background:var(--navy);width:24px}
+  /* The two either side of you are drawn a shade in. Nothing as loud as a size
+     change — just enough that the eye can feel which way the sequence runs. */
+  .col-dot.active + .col-dot,
+  .col-dot:has(+ .col-dot.active){background:rgba(11,23,48,.42)}
 
 
   .journey-grid{grid-template-columns:1fr}
@@ -930,6 +2168,13 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
 @media(max-width:1020px){
   .nav{gap:.4rem}
   .icon-btn{--icon-size:38px}
+
+  /* Tablet columns are narrow enough that the copy wraps into a taller block
+     than the artwork beside it. Narrowing the measure would make that worse —
+     fewer characters per line means more lines — so the size comes down
+     instead, and the artwork takes its full column. */
+  .phil p{font-size:.84rem;line-height:1.56}
+  .phil-art img{max-width:100%}
 
   /* section rhythm */
   #belief,#faq,#heritage,#journey,#collections,#begin{padding-left:0;padding-right:0}
@@ -949,8 +2194,15 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
 
   /* ---- header ---- */
   header{padding:.5rem 0}
+  /* Matches the Standard Collection cards' crisp #fff exactly, rather than the
+     rgba(255,255,255,.96) used above the fold — on a phone the bar and the
+     cards sit close enough together that the near-white read as a mismatch. */
+  header.scrolled{background:#fff}
   .brand-logo{height:30px}
-  .nav{padding:0 .8rem;gap:.3rem}
+  /* 1.5rem matches the drawer's own text inset, so the burger's left edge and
+     every word in the open menu below it share one vertical line. It was .8rem,
+     which left the icon 11px adrift of the links it belongs to. */
+  .nav{padding:0 1.5rem;gap:.3rem}
   .nav-zone{gap:.05rem}
   .icon-btn{--icon-size:30px}
 
@@ -974,20 +2226,57 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
      100dvh screen with no clipping (checked live at 375×812/390×844).
      Padding, image size, and copy are all trimmed down from the old
      plain-flow mobile sizing to make that budget work. */
-  #belief{padding:.9rem 0}
+  /* Top padding clears the fixed header (80px). The panel centres its content,
+     so without this the heading landed at y=55 and sat 25px underneath the bar
+     — "The Philosophy of the Founder" was simply not readable on a phone. */
+  #belief{padding:5.4rem 0 .9rem}
   .phil-heading{font-size:clamp(1.25rem,5.2vw,1.6rem)}
   .phil-heading.uni-h{font-size:clamp(1.25rem,5.2vw,1.6rem)!important}
   .phil-grid{grid-template-columns:1fr;gap:.9rem;margin-top:.6rem}
   .phil-art{order:-1;max-width:100%;padding:0;justify-content:center}
-  .phil-art img{max-width:58%;max-height:34vh;margin:0 auto}
+  /* Height-capped, not width-capped, so max-height is the lever that actually
+     grows it. 48vh spends most of the panel's spare room while leaving enough
+     for the heading and signature on short handsets. */
+  /* Restored at a compact size: the parchment signs itself in its own bottom
+     corner, but leaving the block out entirely on a phone read as broken
+     rather than intentional. Sized down and tightened so the artwork still
+     keeps the room it needs inside the 100dvh budget. */
+  .phil-sig{margin-top:.5rem;gap:.15rem}
+  /* Sized up again now that the ink is gone: a same-surface fill with zero
+     colour contrast needs more room for the shadow pair to read as letters
+     at all, especially on a phone, where it's also smaller to begin with. */
+  .phil-sig-name{width:min(210px,56%)}
+  .phil-art img{max-width:100%;max-height:53vh;margin:0 auto}
   .phil{max-width:100%;text-align:left}
-  /* No room to expand inline while pinned, so the excerpt on mobile is a
-     self-contained pull-quote — "Continue…" only appears at tablet+. */
-  .phil-more,.phil-more-toggle{display:none!important}
-  .phil p{font-size:.95rem;line-height:1.44;margin-bottom:0}
-  .phil-sig{margin-top:.7rem}
-  .phil-sig-name{font-size:1.3rem}
-  .phil-sig-date{font-size:.48rem;letter-spacing:.22em;margin-top:.3rem}
+  .phil-more{display:none}
+  .phil-more-toggle{display:inline}
+  .phil.phil-expanded .phil-more{display:block}
+
+  /* Expanding scrolls the WHOLE panel body, not just the paragraph column.
+     Three things follow from that, all of which were wrong before:
+
+     1. The signature travels with the content instead of being parked below a
+        scrolling box, so it arrives at the end of the words the way a signature
+        should, rather than hovering there the entire way down.
+     2. overscroll-behavior is left at its default. It was `contain`, which by
+        definition refuses to chain — reaching the end of the copy stopped the
+        page dead, and only a finger placed above the text could scroll on.
+     3. The artwork no longer has to shrink to buy room, because the room now
+        comes from scrolling. It stays full size. */
+  #belief .wrap:has(.phil-expanded){
+    max-height:calc(100dvh - 6.6rem);
+    overflow-y:auto;-webkit-overflow-scrolling:touch;
+  }
+  .phil.phil-expanded{max-height:none;overflow:visible;padding-right:0}
+
+  /* Smaller than the artwork's own hand, not competing with it — and pulled in
+     from both edges so the column has margins to read against instead of
+     running to the bezel. */
+  .phil p{font-size:.84rem;line-height:1.6;margin-bottom:0}
+  .phil-copy{padding:0 1.15rem}
+  .phil.phil-expanded p{margin-bottom:.7rem}
+  .phil.phil-expanded p:last-child{margin-bottom:0}
+
 
   /* ---- collections ---- */
   #collections{padding:4.5rem 0!important}
@@ -1005,10 +2294,12 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
   .her-head h2.uni-h{font-size:clamp(1.2rem,6.2vw,2rem)!important;white-space:nowrap}
   .her-stack{gap:.6rem}
   .her-grid{grid-template-columns:1fr;gap:1rem;text-align:center}
-  .her-photo{width:min(340px,78%);margin:0 auto}
-  .her-photo-crop img{max-height:34vh}
-  .her-body{text-align:center;max-width:100%}
-  .her-body p{font-size:.85rem;line-height:1.4;max-width:100%;margin-bottom:.4rem}
+  /* The portrait is the subject of this panel, so it takes the width back from
+     the copy, and the copy is set a step smaller inside its own margins. */
+  .her-photo{width:min(380px,88%);margin:0 auto}
+  .her-photo-crop{--frame-w:min(100%,calc(38vh / 1.3438))}
+  .her-body{text-align:center;max-width:100%;padding:0 1.15rem}
+  .her-body p{font-size:.9rem;line-height:1.5;max-width:100%;margin-bottom:.45rem}
 
   /* ---- journey ---- */
   #journey{padding:4.5rem 0}
@@ -1025,14 +2316,27 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
   #faq .sec-head.faq-head{margin-bottom:0!important}
   /* Symmetric top/bottom padding — the inherited .6rem/1.1rem split shifted
      the icon+text row visibly above center between the two rule lines. */
-  .faq-toggle{padding:.85rem .2rem;margin-top:.35rem;gap:1rem}
-  .faq-toggle-txt.uni-h{font-size:clamp(2.1rem,9.5vw,2.8rem)!important}
-  .faq-toggle-icon{width:38px;height:38px;font-size:1.2rem}
-  /* Font glyph metrics center the "+" ~2px low in this font/size; nudge
-     the glyph itself (not the circle) back to true visual center. */
-  .faq-toggle-icon-glyph{display:block;transform:translateY(-2px)}
+  /* Padding is symmetric here, so the circle needs no correction. */
+  /* Gutter is 1.5rem here and html/body carry overflow-x:clip, so the cap is
+     carried out by less than that — enough to open the curve away from the
+     "B", never enough to be sliced at the viewport edge. */
+  .faq-toggle{padding:.85rem .2rem;margin-top:.35rem;gap:1rem;--icon-nudge:0px;--pill-lead:16px}
+  /* Eased down ~11% from 9.5vw. The pill's ramp begins a fixed distance past
+     the period, so on a phone the type and the icon were leaving the fade
+     only ~43px to travel, against ~109px on desktop — enough to read as a
+     hard edge. Trimming the heading buys the ramp its room back without
+     changing the layout. */
+  #faq{--faq-h-size:clamp(1.85rem,8.4vw,2.5rem)}
+  /* No glyph nudge needed any more — the bars are centred geometrically, so
+     the circle just gets smaller and the cross scales with it. */
+  /* Both boxes shrink together, and the inset that keeps their centres on one
+     axis is derived from them, so it follows automatically. */
+  #faq{--faq-icon-box:38px;--faq-fx-box:26px}
+  .faq-toggle-icon::before{width:14px}
+  .faq-toggle-icon::after{height:14px}
   .faq-q{font-size:1.08rem;padding:1.25rem .2rem;gap:.9rem;min-height:56px}
-  .faq-q .fx{width:26px;height:26px}
+  .faq-q .fx::before{width:10px}
+  .faq-q .fx::after{height:10px}
   .faq-a p{font-size:.88rem}
 
   /* ---- start your story ---- */
@@ -1052,12 +2356,27 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
   .foot-grid{gap:1rem;grid-template-columns:1fr;justify-items:center;text-align:center;padding-bottom:1.6rem}
   .foot-social{justify-self:center}
   .foot-brand{align-items:center}
-  .foot-brand img{height:64px;margin-bottom:.2rem}
+  .foot-brand img{height:64px;margin-bottom:.5rem}
   .foot-col{width:100%;max-width:340px}
   .foot-col h4{margin-bottom:.5rem;font-size:.55rem;text-align:center}
-  .foot-nav{justify-self:center}
-  .foot-nav-columns{display:grid;grid-template-columns:auto auto;justify-content:center;gap:.3rem 1.6rem;align-items:start}
-  .foot-nav-columns ul{display:flex;flex-direction:column;align-items:center;text-align:center}
+  /* The nav rows sit centred between the two headings that bracket them:
+     equal air above (from "Discover the Kingdom") and below (to "Join Our
+     Journey"). Logo-to-eyebrow and "Join Our Journey"-to-icons are matched
+     the same way, so the whole column reads as one balanced rhythm rather
+     than several different gaps. */
+  .foot-nav h4{margin-bottom:1.5rem}
+  .foot-nav{justify-self:center;margin-bottom:.5rem}
+  .foot-social h4{margin-bottom:1rem}
+  /* Six links won't fit one line on a phone; they wrap to two centred rows of
+     three and the drawn separators keep working across the wrap. */
+  /* Tighter columns and a shallower spread on a phone, where the row is
+     narrow enough that 9px would read as a wobble. */
+  .foot-nav-row{gap:.55rem 0}
+  .foot-nav-row li{padding:0 .6rem}
+  .foot-nav-row li:nth-child(1){transform:translateX(-5px)}
+  .foot-nav-row li:nth-child(3){transform:translateX(5px)}
+  .foot-nav-row li:nth-child(4){transform:translateX(5px)}
+  .foot-nav-row li:nth-child(6){transform:translateX(-5px)}
   .foot-nav li{margin-bottom:0}
   .foot-col a{padding:.15rem 0;font-size:.78rem}
   .foot-social ul{justify-content:center;gap:.65rem}
@@ -1073,7 +2392,8 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
   .search-result{padding:.9rem .3rem;min-height:48px}
   .cw{right:1rem;bottom:1rem}
   .cw-btn{width:52px;height:52px}
-  .mobile-menu a{padding:.5rem 1rem;font-size:1.5rem}
+  /* Bigger tap targets in the drawer on touch. */
+  .nav-drawer-links a,.nav-drawer-links>button{padding:1rem 1.5rem 1rem var(--drawer-inset);min-height:48px;display:flex;align-items:center}
 }
 
 @media(min-width:761px){
@@ -1087,45 +2407,94 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
   .hero-inner{padding:0 1.2rem 3.4rem}
   .hero-script{font-size:1.75rem}
   .hero-main.uni-h{font-size:1.7rem!important}
-  .phil p{font-size:1.08rem}
+  /* Smallest phones get slightly smaller copy, not larger — this used to set
+     1.08rem, which overrode the mobile size upward on exactly the screens with
+     the least room. */
+  .phil p{font-size:.81rem}
+  .her-body p{font-size:.87rem}
   .faq-q{font-size:1rem}
+  /* Only the floor moves. Below ~352px the heading was pinning to its minimum
+     while the row kept narrowing, which squeezed the pill's ramp to ~30px;
+     letting it scale on down keeps the fade gradual on the smallest handsets
+     and changes nothing at 375px and up, where 8.4vw already clears it. */
+  #faq{--faq-h-size:clamp(1.6rem,8.4vw,2.5rem)}
+  /* Gutter drops to 1.2rem here — the cap's overhang follows it in. */
+  .faq-toggle{--pill-lead:12px}
+}
+
+/* On shorter phones the Heritage stack (eyebrow + heading + portrait + copy)
+   ran taller than the 100dvh panel, and since the panel centres its content
+   with overflow hidden (.duo-panel), the excess was clipped off the top —
+   "Our Heritage" and the top of the heading disappeared behind the fixed
+   header. Nothing about the layout or the pin/cross-slide animation changes
+   here, only the vertical budget each piece is given, so the whole stack
+   fits within the panel instead of overflowing it. */
+@media(max-width:760px) and (max-height:700px){
+  #heritage{padding:.5rem 0}
+  .her-stack{gap:.4rem}
+  .her-photo-crop{--frame-w:min(100%,calc(30vh / 1.3438))}
+  .her-body p{margin-bottom:.3rem}
 }
 
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{animation:none!important;transition:none!important}
   .hero-main,.hero-actions,.reveal{opacity:1;transform:none}
+  /* The wipe is an animation, so with animations off the clip would otherwise
+     stay closed and the line would never appear. */
   .hero-script{clip-path:none}
 }
 /* ================ CONCIERGE WIDGET ================ */
 .cw{position:fixed;right:1.4rem;bottom:1.4rem;z-index:200;font-family:var(--sans)}
-.cw-dismiss{display:none}
+/* While a drag is in flight the widget must track the pointer exactly — any
+   transition here would make it swim along behind the cursor. */
+.cw.cw-dragging{transition:none!important}
+.cw.cw-dragging .cw-btn{cursor:grabbing}
+/* touch-action:none hands every pointermove to the drag handler instead of
+   letting the browser claim the gesture as a page scroll. */
+.cw-btn{touch-action:none}
 @media(max-width:760px){
   .cw{transition:opacity .35s ease,transform .35s ease}
   .cw.cw-prescroll{opacity:0;transform:translateY(14px);pointer-events:none}
-  /* Small corner X so the FAB can be dismissed entirely if it's in the way. */
-  .cw-dismiss{
-    display:flex;position:absolute;top:-5px;right:-5px;width:20px;height:20px;
-    border-radius:50%;background:var(--ivory);border:1px solid var(--line);color:var(--navy);
-    font-size:13px;line-height:1;align-items:center;justify-content:center;
-    padding:0;cursor:pointer;box-shadow:0 2px 6px rgba(11,23,48,.25);
-  }
 }
+/* The mark's own shape: a circle with the bottom-right quarter squared off
+   rather than rounded. On a square box, setting three corners to 50% and the
+   fourth to 0 draws three true quarter-circle arcs — which is what turns a
+   circle into this flag-like silhouette without needing a clip-path. Order is
+   top-left, top-right, bottom-right, bottom-left, so the 0 has to sit third. */
 .cw-btn{
-  width:58px;height:58px;border-radius:50%;border:2px solid var(--ivory);
+  width:58px;height:58px;border-radius:50% 50% 0 50%;border:2px solid var(--ivory);
   background:var(--navy);color:var(--ivory);cursor:pointer;
   display:flex;align-items:center;justify-content:center;
   box-shadow:0 12px 32px -8px rgba(11,23,48,.5);transition:background .3s,border-color .3s,color .3s;
 }
 .cw-btn svg,.cw-btn-mark{transition:transform .3s}
-.cw-btn-mark{width:30px;height:30px;object-fit:contain;filter:brightness(0) invert(1)}
+/* A flat fill cut to the artwork's alpha, not a recoloured image — see the
+   note above the element in ConciergeWidget.tsx. currentColor means this
+   mark and the border it sits inside are always, exactly, the same colour —
+   ivory at rest, whatever .cw-btn's `color` is on hover — with no second
+   colour value anywhere that could drift out of step with the other. Sized
+   down a step from the button itself, so it reads as a mark resting inside
+   the shape rather than filling it corner to corner. */
+.cw-btn-mark{
+  width:22px;height:22px;background-color:currentColor;
+  -webkit-mask-position:center;mask-position:center;
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+  -webkit-mask-size:contain;mask-size:contain;
+  transition:background-color .3s,transform .3s;
+}
 /* Scoped with min-width (not a plain override) so it can never collide with
    the ≤760px mobile rule regardless of source order — it simply doesn't
    apply below 761px. */
 @media(min-width:761px){
   .cw-btn{width:72px;height:72px}
-  .cw-btn-mark{width:38px;height:38px}
+  .cw-btn-mark{width:28px;height:28px}
 }
 .cw-btn:hover{background:var(--gold);color:var(--ivory);border-color:var(--ivory)}
+/* currentColor means the mark's own background-color transition is entirely
+   driven by the `color` change above — it needs no rule of its own to turn
+   white, and because both transitions run the same .3s, the backdrop and the
+   mark arrive at their hover colours on the same frame rather than one
+   trailing the other. */
 .cw-btn:hover svg,.cw-btn:hover .cw-btn-mark{transform:scale(1.18)}
 .cw-panel{
   position:absolute;right:0;bottom:88px;width:min(360px,calc(100vw - 2.8rem));

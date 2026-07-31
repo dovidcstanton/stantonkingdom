@@ -31,3 +31,6 @@ dist-ssr
 *.sln
 *.sw?
 .workspace_unused_lovable_sandbox_artifact/
+
+# Windows desktop shortcuts (local only, not part of the site)
+*.lnk

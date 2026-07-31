@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import markUrl from "../assets/stanton-mark.png";
+import { WHATSAPP_URL } from "../lib/social";
 
 const KB: { k: string[]; a: string }[] = [
   { k: ["commission", "work", "process", "start", "begin", "how does"], a: "It begins with a conversation. Share an image, a rendering, an heirloom, or simply an idea — we translate it into a detailed design rendering, refine it with you until it's exactly right, and only then begin crafting. You approve every detail first." },
@@ -40,7 +41,6 @@ export function ConciergeWidget() {
   const [open, setOpen] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState("");
-  const [dismissed, setDismissed] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
@@ -52,7 +52,18 @@ export function ConciergeWidget() {
   // the page has scrolled a bit, so keep it out of the way until then.
   // Desktop/tablet keep the button visible immediately, as before.
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 220);
+    // Stay out of the hero entirely on a phone: the button sits exactly where
+    // "Start Your Story" and "Discover the Kingdom" are, and 220px was nowhere
+    // near clearing them — the hero is pinned for several screen-heights, so
+    // the buttons are still under it long after that. Wait until the hero track
+    // has actually released before appearing.
+    const onScroll = () => {
+      const track = document.querySelector<HTMLElement>(".hero-track");
+      const threshold = track
+        ? track.offsetTop + track.offsetHeight - window.innerHeight * 0.9
+        : 220;
+      setScrolled(window.scrollY > threshold);
+    };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -65,22 +76,109 @@ export function ConciergeWidget() {
     setText("");
   };
 
-  if (dismissed) return null;
+  // ---- Draggable ----
+  // The concierge is offset from its anchored corner by a transform rather than
+  // being re-anchored, so the CSS corner position stays the single source of
+  // truth and {0,0} is always "back where it belongs". Movement is clamped to
+  // the viewport so it can never be dragged somewhere unreachable.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const dragRef = useRef<{ px: number; py: number; ox: number; oy: number; moved: boolean } | null>(null);
+  const DRAG_SLOP = 5; // px of travel before a press counts as a drag, not a tap
+
+  // Mirrors `pos` so clampToViewport can read the live offset without being
+  // rebuilt on every drag frame — the resize listener below binds once.
+  const posRef = useRef(pos);
+  posRef.current = pos;
+
+  const clampToViewport = (x: number, y: number) => {
+    const el = rootRef.current;
+    if (!el) return { x, y };
+    const r = el.getBoundingClientRect();
+    const M = 8; // keep this much of a gap from every edge
+    // Undo the current transform to recover the element's anchored position,
+    // then work out how far it may travel from there in each direction.
+    const baseLeft = r.left - posRef.current.x;
+    const baseTop = r.top - posRef.current.y;
+    return {
+      x: Math.min(Math.max(x, M - baseLeft), window.innerWidth - M - r.width - baseLeft),
+      y: Math.min(Math.max(y, M - baseTop), window.innerHeight - M - r.height - baseTop),
+    };
+  };
+
+  const onHandlePointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    dragRef.current = { px: e.clientX, py: e.clientY, ox: pos.x, oy: pos.y, moved: false };
+    // Capture keeps the drag alive if the pointer outruns the button, but it
+    // throws on an id the browser isn't tracking. Losing capture only costs a
+    // dropped drag, so it must never take the handler down with it.
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* no capture — drag still works */ }
+  };
+
+  const onHandlePointerMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const dx = e.clientX - d.px;
+    const dy = e.clientY - d.py;
+    if (!d.moved && Math.hypot(dx, dy) < DRAG_SLOP) return;
+    if (!d.moved) {
+      d.moved = true;
+      setDragging(true);
+    }
+    setPos(clampToViewport(d.ox + dx, d.oy + dy));
+  };
+
+  const onHandlePointerUp = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    dragRef.current = null;
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* never captured */ }
+    if (!d) return;
+    if (d.moved) {
+      setDragging(false);
+      return; // a drag, not a tap — don't toggle the panel
+    }
+    setOpen((v) => !v);
+  };
+
+  // A resize can strand the widget off-screen; pull it back into bounds.
+  useEffect(() => {
+    const onResize = () => setPos((p) => clampToViewport(p.x, p.y));
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
-    <div className={"cw" + (open ? " open" : "") + (scrolled ? "" : " cw-prescroll")}>
-      <button className="cw-btn" aria-label="Ask the Kingdom" onClick={() => setOpen((v) => !v)}>
-        <img src={markUrl} alt="" className="cw-btn-mark" />
+    <div
+      ref={rootRef}
+      className={"cw" + (open ? " open" : "") + (scrolled ? "" : " cw-prescroll") + (dragging ? " cw-dragging" : "")}
+      style={pos.x || pos.y ? { transform: `translate(${pos.x}px, ${pos.y}px)` } : undefined}
+    >
+      <button
+        className="cw-btn"
+        aria-label="Ask the Kingdom (drag to move)"
+        onPointerDown={onHandlePointerDown}
+        onPointerMove={onHandlePointerMove}
+        onPointerUp={onHandlePointerUp}
+        onPointerCancel={onHandlePointerUp}
+      >
+        {/* A mask, not an img with a colour filter. Filters recolour the
+            rendered pixels, and a PNG's anti-aliased edge pixels sit between
+            fully opaque and fully transparent — inverted or not, that half-
+            transparent fringe still shows through as a faint pale outline
+            against the border. Masking uses only the alpha channel to punch
+            the shape out of a flat fill, so the fill IS the border's own
+            colour with no source pixel involved, and the edge is exactly as
+            clean as the border line itself. It also means the hover colour is
+            a single background-color transition, timed to match the button's
+            own background transition exactly. */}
+        <span
+          className="cw-btn-mark"
+          aria-hidden="true"
+          style={{ WebkitMaskImage: `url(${markUrl})`, maskImage: `url(${markUrl})` }}
+        />
       </button>
-      {!open && (
-        <button
-          className="cw-dismiss"
-          aria-label="Hide concierge button"
-          onClick={(e) => { e.stopPropagation(); setDismissed(true); }}
-        >
-          ×
-        </button>
-      )}
       <div className="cw-panel" aria-hidden={!open}>
         <div className="cw-head">
           <div>
@@ -112,7 +210,7 @@ export function ConciergeWidget() {
           />
           <button aria-label="Send" onClick={() => ask(text)}>→</button>
         </div>
-        <a className="cw-wa" href="https://wa.me/16464508840">Continue on WhatsApp →</a>
+        <a className="cw-wa" href={WHATSAPP_URL}>Continue on WhatsApp →</a>
       </div>
     </div>
   );

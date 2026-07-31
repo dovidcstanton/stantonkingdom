@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { Catalog, type CatalogSelection } from "@/components/sections/Catalog";
+import { Catalog, ANY, type CatalogSelection } from "@/components/sections/Catalog";
 import { SiteFooter } from "@/components/SiteFooter";
+import { SignatureMark } from "@/components/SignatureMark";
 import phoneIconUrl from "@/assets/icon-phone-mask.png";
+import { WHATSAPP_URL } from "@/lib/social";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -23,12 +25,16 @@ const V_DIV_BG_NAVY_FILL_PAPER = { bg: "var(--paper)", fill: "var(--navy)" } as 
 function VDivider({ bg, fill, accent, className, flip }: { bg: string; fill: string; accent?: boolean; className?: string; flip?: boolean }) {
   return (
     <div className={"v-divider" + (className ? ` ${className}` : "")} style={{ background: bg }}>
-      {/* A 1-unit overscan beyond the viewBox on the flat edge and sides
-          absorbs sub-pixel antialiasing so no seam line of the container's
-          own background can peek through at the top/side edges. */}
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+      {/* A 1-unit overscan on the flat edge and sides absorbs sub-pixel
+          antialiasing so no seam line of the container's own background can
+          peek through there. The apex must NOT be overscanned: SVG clips to
+          the viewBox, so an apex at 101 loses its last unit, and because this
+          point is very shallow that removes a ~10px-wide flat segment rather
+          than a hairline — every divider on the site ended up blunt-tipped.
+          Landing it exactly on the edge keeps the point intact. */}
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" shapeRendering="geometricPrecision">
         <polygon
-          points={flip ? "-1,101 101,101 50,-1" : "-1,-1 101,-1 50,101"}
+          points={flip ? "-1,101 101,101 50,0" : "-1,-1 101,-1 50,100"}
           fill={fill}
           stroke={accent ? "var(--gold)" : undefined}
           strokeWidth={accent ? 1.5 : undefined}
@@ -41,8 +47,33 @@ function VDivider({ bg, fill, accent, className, flip }: { bg: string; fill: str
 
 function PhilosophyText() {
   const [expanded, setExpanded] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // Collapse once the panel is off screen, so returning to it always starts
+  // from the excerpt and "Continue…" again. Leaving it expanded meant sliding
+  // back to this frame landed you mid-essay with no way back to the short form.
+  // The panel is translated fully aside during the Heritage leg of the pan, so
+  // it stops intersecting there too — scrolling back up resets it as well.
+  useEffect(() => {
+    if (!expanded) return;
+    const panel = rootRef.current?.closest(".duo-panel");
+    if (!panel) return;
+    const io = new IntersectionObserver(
+      ([entry]) => { if (!entry.isIntersecting) setExpanded(false); },
+      // The root is squeezed to the middle 30% of the screen on purpose. During
+      // the Heritage leg this panel is parked exactly one screen-width to the
+      // right, so its left edge lands precisely ON the viewport edge — and a
+      // rect that merely touches the boundary still reports isIntersecting with
+      // a ratio of 0. Requiring it to reach the centre band makes "off screen"
+      // mean actually off screen.
+      { threshold: 0, rootMargin: "0px -35% 0px -35%" },
+    );
+    io.observe(panel);
+    return () => io.disconnect();
+  }, [expanded]);
+
   return (
-    <div className="phil-copy">
+    <div className="phil-copy" ref={rootRef}>
       <div className={`phil${expanded ? " phil-expanded" : ""}`}>
         <p>
           &ldquo;I've never believed that what makes a piece of jewelry valuable is the stone, the gold, or even the craftsmanship. The most valuable part of a piece of jewelry is the story it carries.
@@ -165,23 +196,23 @@ const FAQ = [
 const COLLECTIONS = [
   {
     name: "Rings",
-    img: "https://stantonkingdom.com/wp-content/uploads/2023/10/7c23248354327e336479345356485da4.jpg",
+    img: "/collection-rings.jpg",
     types: ["Engagement", "Wedding", "Eternity", "Haute Couture"],
   },
   {
-    name: "Necklaces",
-    img: "https://stantonkingdom.com/wp-content/uploads/2023/10/Necklace-e1698231277111-768x768.jpg",
-    types: ["Pendants", "Riviera & Tennis Necklaces", "Milestone Pieces"],
+    name: "Earrings",
+    img: "/collection-earrings.jpg",
+    types: ["Studs & Clusters", "Hoops & Huggies", "Drops & Chandeliers"],
   },
   {
     name: "Bracelets",
-    img: "https://stantonkingdom.com/wp-content/uploads/2023/10/shutterstock_1788848870-scaled-e1697638089202-768x548.jpg",
+    img: "/collection-bracelets.jpg",
     types: ["Tennis", "Bangles", "Statement & Link"],
   },
   {
-    name: "Earrings",
-    img: "https://stantonkingdom.com/wp-content/uploads/2023/10/Earrings-e1698231240846-768x768.jpg",
-    types: ["Studs & Clusters", "Hoops & Huggies", "Drops & Chandeliers"],
+    name: "Necklaces",
+    img: "/collection-necklaces.jpg",
+    types: ["Solitaires", "Pendants", "Riviera & Tennis", "Statement & Link"],
   },
 ];
 
@@ -253,9 +284,19 @@ function CollectionCard({
         className="col-photo"
         aria-label={expanded ? `Close ${col.name}` : `Open ${col.name}`}
         aria-expanded={expanded && isActive}
+        // Where the pointer is inside the card, as a percentage, handed to CSS
+        // as the zoom's transform-origin. Written straight to the node rather
+        // than through state: this fires on every mousemove, and re-rendering
+        // the card at that rate would cost far more than it buys. The easing
+        // lives in CSS, so this only ever reports a position.
+        onMouseMove={(e) => {
+          const el = e.currentTarget;
+          const r = el.getBoundingClientRect();
+          el.style.setProperty("--ox", `${((e.clientX - r.left) / r.width) * 100}%`);
+          el.style.setProperty("--oy", `${((e.clientY - r.top) / r.height) * 100}%`);
+        }}
       >
         <div className="img" style={{ backgroundImage: `url('${col.img}')` }} />
-        <div className="tint" />
       </button>
       <h3 className="serif">
         <button
@@ -683,11 +724,13 @@ function HomePage() {
   }, []);
 
   // ============ Heritage/Philosophy immersive duo (tunable) ============
-  // Pinned like the hero. Heritage slides in from the LEFT and settles, then
-  // — with no pause — continues on to exit further left while Philosophy of
-  // the Founder enters from the right (the "other side"), landing exactly
-  // where Heritage's trailing edge is at every instant so the two edges
-  // always meet with zero gap between them. Fully reversible scrolling up.
+  // Pinned like the hero. Heritage slides in from the LEFT and settles dead
+  // centre exactly as the section takes the screen, holds there to be read,
+  // then continues on to exit further left while Philosophy of the Founder
+  // enters from the right (the "other side"), landing exactly where Heritage's
+  // trailing edge is at every instant so the two edges always meet with zero
+  // gap between them. Philosophy then holds for the same beat before the pin
+  // releases. Fully reversible scrolling up.
   //
   // Modelled as one camera panning across a single long wall at a constant
   // rate, rather than two animations played back to back: Heritage slides in
@@ -699,20 +742,28 @@ function HomePage() {
   // near-stationary patch at the phase junction, which reads as scrolling
   // against a frozen screen.
   //
-  // DUO_LEAD starts the pan a full screen before the panel pins, so Heritage
-  // is already ~75% of the way in by the time the section owns the screen —
-  // the previous timing left an almost-empty panel sitting there. The pan
-  // finishes exactly as the pin releases, so Philosophy lands at the same
-  // moment you are free to scroll onward.
-  //
-  // DUO_REST parks Heritage dead centre for a beat so it can actually be read
+  // DUO_REST parks a panel dead centre for a beat so it can actually be read
   // before it leaves. It is a flat hold, not an eased one: easing into and out
   // of a stop spreads the slowdown across the surrounding motion and reads as
   // the page lagging, whereas a clean stop reads as a deliberate pause.
-  const DUO_LEAD = 1; // screen-heights of pan before the pin locks
-  const DUO_LEG = 4 / 3; // screen-heights of scroll per screen-width panned
-  const DUO_REST = 0.6; // screen-heights Heritage holds at centre
-  const DUO_SPAN = 2 * DUO_LEG + DUO_REST;
+  // Heritage and Philosophy get the *same* rest, so the section's rhythm is
+  // symmetrical: arrive, hold, cross, hold, release.
+  const DUO_LEG = 4 / 3; // screen-widths of pan, in pan-units
+  const DUO_REST = 0.6; // pan-units each panel holds at centre
+  const DUO_REST_END = DUO_REST; // Philosophy holds exactly as long as Heritage
+  const DUO_SPAN = 2 * DUO_LEG + DUO_REST + DUO_REST_END;
+
+  // DUO_LEAD is how much of the pan happens *before* the panel pins. It is
+  // derived, not chosen, because the requirement is exact: Heritage must be
+  // dead centre at the very instant the section takes over the screen — not
+  // still drifting in, which left you scrolling against an already-full panel.
+  //
+  // The pan is driven by `travelled = p * DUO_SPAN`, and the pin engages when
+  // the track's top hits the viewport top, i.e. at p = DUO_LEAD / total where
+  // total = DUO_SPAN - 1 + DUO_LEAD. Setting travelled-at-pin equal to the
+  // entry leg (DUO_LEG) and solving for DUO_LEAD gives the expression below.
+  // Deriving it keeps the guarantee intact if DUO_LEG or the rests are retuned.
+  const DUO_LEAD = (DUO_LEG * (DUO_SPAN - 1)) / (DUO_SPAN - DUO_LEG);
   // Track height equals the pan span because the lead is exactly one screen.
   const DUO_HOLD = `${Math.round(DUO_SPAN * 100)}vh`;
 
@@ -780,6 +831,43 @@ function HomePage() {
     };
   }, []);
 
+  // Deep link from the navigation menu straight into the catalogue. The menu
+  // drills category then type and stops there, so every style is shown.
+  useEffect(() => {
+    const onCatalog = (e: Event) => {
+      const d = (e as CustomEvent<{ category?: string; type?: string; style?: string }>).detail;
+      // Anything the menu did not specify stays open, so stopping at "View all
+      // Rings" really does mean every ring rather than a defaulted type.
+      setSelection({
+        category: d?.category ?? ANY,
+        type: d?.type ?? ANY,
+        style: d?.style ?? ANY,
+      });
+    };
+    window.addEventListener("sk:catalog", onCatalog);
+    return () => window.removeEventListener("sk:catalog", onCatalog);
+  }, []);
+
+  // Consult, reached from the navigation menu. Opens rather than toggles: the
+  // menu's intent is unambiguous, whereas the card on the page is a toggle
+  // because you can press it twice. The scroll waits a tick because the form is
+  // hidden until meetOpen commits, and you cannot scroll to what is not laid
+  // out yet.
+  useEffect(() => {
+    const onConsult = () => {
+      setMeetOpen(true);
+      window.setTimeout(() => {
+        formRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 80);
+      window.setTimeout(() => {
+        (formRef.current?.querySelector('input[name="first_name"]') as HTMLInputElement | null)
+          ?.focus({ preventScroll: true });
+      }, 800);
+    };
+    window.addEventListener("sk:consult", onConsult);
+    return () => window.removeEventListener("sk:consult", onConsult);
+  }, []);
+
   const openCatalog = (category: string, type: string, style: string) => {
     setSelection({ category, type, style });
   };
@@ -827,11 +915,16 @@ function HomePage() {
               <div className="her-grid">
                 <div className="her-photo reveal">
                   <div className="her-photo-crop">
-                    <img src="https://stantonkingdom.com/wp-content/uploads/2023/10/David-Stanton-Frame-2-768x1012.png" alt="David C. Stanton, Founder of Stanton Kingdom" loading="lazy" />
+                    <div className="her-frame">
+                      <img src="/heritage-portrait.png" alt="David C. Stanton, Founder of Stanton Kingdom" loading="lazy" />
+                    </div>
                   </div>
                 </div>
                 <div className="her-body">
-                  <p className="reveal">Stanton Kingdom was established by David C. Stanton, whose voyage amidst the stones commenced at the tender age of fifteen, apprenticing under the leadership of his esteemed brother, Doniel Stanton, a renowned gemologist and jewelry manufacturer throughout the United Kingdom.</p>
+                  {/* The two names are held together: "David C." was breaking
+                      from "Stanton" across a line, which reads as a stumble in
+                      the one sentence that introduces the founder. */}
+                  <p className="reveal">Stanton Kingdom was established by <span className="nb">David C. Stanton</span>, whose voyage amidst the stones commenced at the tender age of fifteen, apprenticing under the leadership of his esteemed brother, <span className="nb">Doniel Stanton</span>, a renowned gemologist and jewelry manufacturer throughout the United Kingdom.</p>
                   <p className="reveal">Born and raised in England, David now resides in the United States with his beloved wife and four remarkable children.</p>
                 </div>
               </div>
@@ -840,19 +933,13 @@ function HomePage() {
 
           <section id="belief" className="duo-panel" ref={duoPhilRef as any}>
             <div className="wrap">
+              {/* One typeface for the whole heading — "The" used to be a
+                  calligraphic swash mask; simplified to plain type so it
+                  reads as one consistent title rather than two treatments. */}
               <div className="phil-heading-wrap reveal">
-                <span className="phil-heading uni-h">The Philosophy of the <em>Founder</em></span>
-                <div className="phil-rule">
-                  <span></span>
-                  <svg className="phil-rule-icon" width="20" height="20" viewBox="0 0 792 783.134">
-                    <path fill="currentColor" d="M 420.503906 331.320312 L 421.8125 330.535156 L 657.964844 194.234375 L 659.359375 193.449219 L 420.503906 193.449219 Z"/>
-                    <path fill="currentColor" d="M 444.921875 373.703125 L 451.113281 377.277344 L 673.835938 505.816406 L 791.5625 377.277344 L 791.5625 352.597656 L 689.96875 232.257812 Z"/>
-                    <path fill="currentColor" d="M 134.644531 193.460938 L 0.4375 352.609375 L 212.78125 352.609375 L 322.660156 416.007812 L 322.660156 656.519531 L 104.210938 418.1875 L 232.027344 418.1875 L 161.214844 377.289062 L 0.4375 377.289062 L 371.582031 782.269531 L 371.582031 387.839844 L 239.640625 311.710938 L 88.515625 311.710938 L 153.746094 234.445312 L 322.660156 234.445312 L 322.660156 303.164062 L 371.582031 331.332031 L 371.582031 193.460938 Z"/>
-                    <path fill="currentColor" d="M 396.046875 0 L 369.359375 73.355469 L 271.023438 9.132812 L 263.746094 92.769531 L 130.300781 50.382812 L 180.539062 145.574219 L 611.414062 145.574219 L 661.796875 50.382812 L 528.351562 92.769531 L 521.070312 9.132812 L 422.738281 73.355469 Z"/>
-                    <path fill="currentColor" d="M 420.503906 782.257812 L 639.914062 542.792969 L 420.503906 416.085938 Z"/>
-                  </svg>
-                  <span></span>
-                </div>
+                <span className="phil-heading uni-h">
+                  The Philosophy of the Founder
+                </span>
               </div>
               <div className="phil-grid">
                 <div className="phil-art reveal">
@@ -860,9 +947,10 @@ function HomePage() {
                 </div>
                 <PhilosophyText />
               </div>
+              {/* The signature artwork carries the date itself, so no role
+                  line beneath it. */}
               <div className="phil-sig">
-                <span className="phil-sig-name">David C. Stanton</span>
-                <span className="phil-sig-date">Founder of Stanton Kingdom</span>
+                <SignatureMark className="phil-sig-name" />
               </div>
             </div>
           </section>
@@ -958,17 +1046,23 @@ function HomePage() {
       <section id="begin">
         <h2 className="serif canela canela-light reveal uni-h begin-h">Start <em>Your Story.</em></h2>
         <div className="contact-grid reveal">
-          <a className="contact-opt" href="https://wa.me/16464508840">
+          <a className="contact-opt" href={WHATSAPP_URL}>
             <svg className="cc-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.38 5.07L2 22l5.06-1.33A9.94 9.94 0 0 0 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm5.2 14.2c-.22.62-1.09 1.15-1.79 1.3-.48.1-1.1.18-3.2-.69-2.69-1.11-4.43-3.83-4.57-4.01-.13-.18-1.09-1.45-1.09-2.77 0-1.32.69-1.96.94-2.23.22-.24.48-.3.64-.3.16 0 .32 0 .46.01.15.01.35-.06.55.42.22.53.74 1.83.8 1.96.06.13.1.29.02.47-.08.18-.12.29-.24.44-.12.15-.25.34-.36.46-.12.12-.24.25-.1.49.14.24.62 1.02 1.33 1.65.91.81 1.68 1.06 1.92 1.18.24.12.38.1.52-.06.14-.16.6-.7.76-.94.16-.24.32-.2.54-.12.22.08 1.4.66 1.64.78.24.12.4.18.46.28.06.1.06.58-.16 1.2z"/></svg>
             <span className="cc-label serif canela">Chat</span>
             <span className="cc-sub">Message us anytime.</span>
           </a>
           <a className="contact-opt" href="tel:+16464508840">
-            <span
-              className="cc-icon cc-icon-mask"
-              style={{ WebkitMaskImage: `url(${phoneIconUrl})`, maskImage: `url(${phoneIconUrl})` }}
-              aria-hidden="true"
-            />
+            {/* The mask sits on an inner span, not on .cc-icon itself. A mask
+                is applied after filters, so a drop-shadow on the masked
+                element is clipped away by that same mask — which is why Call
+                alone had no glow. Filtering the unmasked parent shadows the
+                masked child's real silhouette. */}
+            <span className="cc-icon cc-icon-mask" aria-hidden="true">
+              <span
+                className="cc-mask-glyph"
+                style={{ WebkitMaskImage: `url(${phoneIconUrl})`, maskImage: `url(${phoneIconUrl})` }}
+              />
+            </span>
             <span className="cc-label serif canela">Call</span>
             <span className="cc-sub">Speak with us directly.</span>
           </a>
@@ -995,7 +1089,7 @@ function HomePage() {
               />
             </svg>
             <span className="cc-label serif canela">Consult</span>
-            <span className="cc-sub">Discuss in person or virtual.</span>
+            <span className="cc-sub">Discuss in person or virtually.</span>
           </button>
         </div>
 

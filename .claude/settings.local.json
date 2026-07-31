@@ -12,7 +12,11 @@
       "Bash(cp \"C:\\\\Users\\\\David C. Stanton\\\\Downloads\\\\Screenshot_20260723_141706_ChatGPT.jpg\" \"src\\\\assets\\\\icon-bag-new.jpg\")",
       "Bash(cp \"C:\\\\Users\\\\David C. Stanton\\\\Downloads\\\\1403584.png\" \"src\\\\assets\\\\icon-phone-new.png\")",
       "Bash(cp \"/c/Users/David C. Stanton/Downloads/Screenshot_20260723_141706_ChatGPT.jpg\" \"src/assets/icon-bag-new.jpg\")",
-      "Bash(cp \"/c/Users/David C. Stanton/Downloads/1403584.png\" \"src/assets/icon-phone-new.png\")"
+      "Bash(cp \"/c/Users/David C. Stanton/Downloads/1403584.png\" \"src/assets/icon-phone-new.png\")",
+      "Bash(npm run *)",
+      "Bash(netstat -ano)",
+      "Bash(powershell -Command \"Get-Process -Id 19140 | Select-Object Id,ProcessName,Path\")",
+      "Bash(powershell -Command \"Stop-Process -Id 19140 -Force\")"
     ]
   }
 }
