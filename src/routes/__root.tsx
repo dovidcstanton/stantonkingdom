@@ -14,6 +14,8 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { SiteHeader } from "../components/SiteHeader";
 import { ConciergeWidget } from "../components/ConciergeWidget";
 import { ScrollProgress } from "../components/ScrollProgress";
+import { CartDrawer, CartLauncher } from "../components/CartDrawer";
+import { CartProvider } from "../lib/cart";
 
 // Build-time cache-buster. `__BUILD_ID__` is injected via Vite `define` in
 // vite.config.ts and changes on every build, so browsers and the preview
@@ -35,14 +37,23 @@ const getAppCssHref = () =>
 
 function NotFoundComponent() {
   return (
-    <div style={{ background: "var(--ivory)" }} className="flex min-h-screen items-center justify-center px-4">
+    <div
+      style={{ background: "var(--ivory)" }}
+      className="flex min-h-screen items-center justify-center px-4"
+    >
       <div className="max-w-md text-center">
-        <h1 className="serif" style={{ fontSize: "5rem", color: "var(--navy)" }}>404</h1>
+        <h1 className="serif" style={{ fontSize: "5rem", color: "var(--navy)" }}>
+          404
+        </h1>
         <p className="mt-2" style={{ color: "var(--ink-mute)" }}>
           The page you're looking for doesn't exist.
         </p>
         <div className="mt-6">
-          <Link to="/" className="btn btn-gold" style={{ borderColor: "var(--gold)", color: "var(--navy)" }}>
+          <Link
+            to="/"
+            className="btn btn-gold"
+            style={{ borderColor: "var(--gold)", color: "var(--navy)" }}
+          >
             Return home
           </Link>
         </div>
@@ -58,7 +69,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   }, [error]);
 
   return (
-    <div style={{ background: "var(--ivory)" }} className="flex min-h-screen items-center justify-center px-4">
+    <div
+      style={{ background: "var(--ivory)" }}
+      className="flex min-h-screen items-center justify-center px-4"
+    >
       <div className="max-w-md text-center">
         <h1 className="serif" style={{ fontSize: "1.8rem", color: "var(--navy)" }}>
           This page didn't load
@@ -136,10 +150,14 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ScrollProgress />
-      <SiteHeader />
-      <Outlet />
-      <ConciergeWidget />
+      <CartProvider>
+        <ScrollProgress />
+        <SiteHeader />
+        <Outlet />
+        <ConciergeWidget />
+        <CartLauncher />
+        <CartDrawer />
+      </CartProvider>
     </QueryClientProvider>
   );
 }

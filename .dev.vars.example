@@ -1,0 +1,20 @@
+# Shopify Storefront API credentials.
+#
+# Copy this file to `.dev.vars` (which is gitignored) and fill in the token to
+# run the connected store locally. In production these are Cloudflare Worker
+# secrets, set with:
+#
+#   npx wrangler secret put SHOPIFY_DOMAIN
+#   npx wrangler secret put SHOPIFY_STOREFRONT_TOKEN
+#
+# The Storefront token is read-only and safe to hold here, but it is still a
+# credential — never commit the filled-in .dev.vars.
+#
+# To generate the token: Shopify admin -> Settings -> Apps and sales channels
+# -> Develop apps -> Create an app -> Configuration -> Storefront API ->
+# enable "Read products, variants and collections" and "Read and modify carts"
+# -> Save -> API credentials -> Install app -> copy the Storefront API access
+# token.
+
+SHOPIFY_DOMAIN=stanton-kingdom-atelier-dyc8z.myshopify.com
+SHOPIFY_STOREFRONT_TOKEN=

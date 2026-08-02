@@ -1,4 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { collectionPath } from "../lib/catalog";
 import wordmarkUrl from "../assets/stanton-wordmark.png";
 import phoneIconUrl from "../assets/icon-phone-mask.png";
 import bagIconUrl from "../assets/icon-bag-mask.png";
@@ -422,10 +424,16 @@ export function SiteHeader() {
       const y = window.scrollY;
       // Only turn the header white once we've scrolled past the hero track
       // (into the next section). While panning through the hero, keep it transparent.
+      //
+      // Pages with no hero — the collection pages and a piece page — get the
+      // white bar immediately. The transparency exists so the header can sit
+      // over the hero's dark photography; over an ivory catalogue it renders as
+      // a dark gradient smeared across the top of the page, and the wordmark
+      // goes pale-on-pale until you scroll 60px for no reason.
       const track = document.querySelector(".hero-track") as HTMLElement | null;
       const threshold = track
         ? track.offsetTop + track.offsetHeight - window.innerHeight - 20
-        : 60;
+        : -1;
       setScrolled(y > threshold);
       if (menuOpenRef.current && Math.abs(y - menuOpenAtYRef.current) > MENU_SCROLL_DISMISS) {
         setMenuOpen(false);
@@ -467,6 +475,8 @@ export function SiteHeader() {
       : SEARCH_INDEX;
   }, [q]);
 
+  const navigate = useNavigate();
+
   const go = (anchor: string) => {
     setSearchOpen(false);
     setMenuOpen(false);
@@ -475,16 +485,19 @@ export function SiteHeader() {
   };
 
   // Open the catalogue at whatever depth the user stopped at. Anything left
-  // unspecified is passed as ANY, so "View all Rings" is genuinely all rings
-  // rather than a guess at a default type. A custom event rather than shared
-  // state: the page owns the catalogue, and the header stays ignorant of how it
-  // is rendered or filtered — which is what will let the same menu point at
-  // real Shopify routes later without changing anything here.
+  // unspecified simply is not in the path, so "View all Rings" is genuinely all
+  // rings rather than a guess at a default type.
+  //
+  // This used to dispatch a custom event that the home page caught and rendered
+  // in place. That kept the client on "/" with no URL to bookmark, share, or
+  // send back to — a collection is a page, so it now navigates to one. Style is
+  // the one level that stays a search param; see validateCollectionSearch.
   const goCatalog = (category?: string, type?: string, style?: string) => {
     setMenuOpen(false);
-    window.dispatchEvent(
-      new CustomEvent("sk:catalog", { detail: { category, type, style } }),
-    );
+    navigate({
+      to: collectionPath(category, type),
+      search: style && style !== "Uniquely Yours" ? { style } : {},
+    });
   };
 
   // Going deeper. The clicked row is remembered, its siblings are faded

@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Piece page — design mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=Jost:wght@200;300;400;500&display=swap" />
+<style>
+  :root{
+    --ivory:#FBF9F4; --paper:#F4F0E7;
+    --ink:#1C1B18; --ink-soft:#3E3C35; --ink-mute:#6E6B60;
+    --navy:#0B1730; --gold:#AE8C4C; --gold-bright:#D9BB7F; --gold-faint:rgba(174,140,76,.3);
+    --line:rgba(28,27,24,.14);
+    --serif:'Cormorant Garamond',Georgia,serif;
+    --sans:'Jost','Helvetica Neue',Arial,sans-serif;
+    --hdr:74px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--ivory);color:var(--ink);font-family:var(--sans);font-weight:300;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+  .wrap{max-width:1320px;margin:0 auto;padding-left:5vw;padding-right:5vw}
+  .serif{font-family:var(--serif)}
+  .eyebrow{font-size:.6rem;font-weight:400;letter-spacing:.4em;text-transform:uppercase;color:var(--gold)}
+
+  header{position:fixed;top:0;left:0;right:0;z-index:120;background:rgba(11,23,48,.96);backdrop-filter:blur(6px)}
+  .hbar{display:flex;align-items:center;justify-content:space-between;height:var(--hdr)}
+  .hmark{font-family:var(--serif);font-size:1.35rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ivory)}
+  .hmark span{color:var(--gold-bright)}
+  .hnav{display:flex;gap:2.1rem;font-size:.62rem;letter-spacing:.3em;text-transform:uppercase;color:rgba(251,249,244,.82)}
+
+  .crumbs{display:flex;gap:.5rem;font-size:.56rem;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-mute);padding:2rem 0 1.6rem}
+  .crumbs a:hover{color:var(--gold)}
+
+  .pgrid{display:grid;grid-template-columns:1fr;gap:2.4rem;padding-bottom:5rem}
+  @media (min-width:940px){ .pgrid{grid-template-columns:1.1fr 1fr;gap:3.6rem;align-items:start} .detail{position:sticky;top:calc(var(--hdr) + 1.6rem)} }
+
+  /* ---- gallery: native scroll-snap, the same mechanism as the home carousel ---- */
+  .gal{position:relative}
+  .track{
+    display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;
+    scrollbar-width:none;background:var(--navy);
+  }
+  .track::-webkit-scrollbar{display:none}
+  .slide{flex:0 0 100%;scroll-snap-align:center;aspect-ratio:1/1}
+  .slide img{width:100%;height:100%;object-fit:cover;display:block}
+  .arw{
+    position:absolute;top:50%;transform:translateY(-50%);width:42px;height:42px;
+    background:rgba(251,249,244,.9);display:grid;place-items:center;font-size:1rem;color:var(--navy);
+    opacity:0;transition:opacity .3s,background .3s;
+  }
+  .gal:hover .arw{opacity:1}
+  .arw:hover{background:var(--gold);color:#fff}
+  .arw.l{left:0} .arw.r{right:0}
+  .dots{display:flex;gap:.5rem;justify-content:center;padding:.9rem 0}
+  .dot{width:7px;height:7px;border-radius:50%;border:1px solid var(--ink-mute);transition:background .3s,border-color .3s,transform .3s}
+  .dot.on{background:var(--gold);border-color:var(--gold);transform:scale(1.25)}
+  .thumbs{display:flex;gap:.5rem;flex-wrap:wrap}
+  .thumb{width:66px;height:66px;border:1px solid var(--line);opacity:.7;transition:opacity .3s,border-color .3s;overflow:hidden}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .thumb.on{opacity:1;border-color:var(--gold)}
+
+  /* ---- detail column ---- */
+  .ptitle{font-family:var(--serif);font-weight:400;font-size:clamp(1.9rem,3.4vw,2.7rem);line-height:1.08;margin-top:.4rem}
+  .pspec{font-size:.84rem;color:var(--ink-soft);font-weight:200;margin-top:.65rem;line-height:1.6}
+  .pprice{font-family:var(--serif);font-style:italic;font-size:1.65rem;color:var(--gold);margin:1.25rem 0 1.6rem}
+
+  .opt{margin-bottom:1.5rem}
+  .optlab{display:flex;align-items:baseline;gap:.55rem;font-size:.56rem;letter-spacing:.28em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:.6rem}
+  .optlab b{font-weight:400;letter-spacing:.06em;text-transform:none;font-size:.78rem;color:var(--navy)}
+  .opts{display:flex;flex-wrap:wrap;gap:.45rem}
+
+  /* metal: the actual colour, not the word alone */
+  .metal{display:flex;align-items:center;gap:.5rem;border:1px solid var(--line);padding:.45rem .85rem .45rem .5rem;transition:border-color .3s,background .3s}
+  .metal i{width:17px;height:17px;border-radius:50%;display:block;box-shadow:inset 0 0 0 1px rgba(0,0,0,.13)}
+  .metal span{font-size:.68rem;letter-spacing:.1em;color:var(--ink-soft)}
+  .metal:hover{border-color:var(--gold-faint)}
+  .metal.on{border-color:var(--gold);background:rgba(174,140,76,.08)}
+  .metal.on span{color:var(--navy)}
+  .m-white{background:linear-gradient(135deg,#F2F2F0,#D8D9DA)}
+  .m-yellow{background:linear-gradient(135deg,#F0D695,#D4A94E)}
+  .m-rose{background:linear-gradient(135deg,#F2CFC0,#D79C86)}
+
+  .sz{border:1px solid var(--line);padding:.5rem .95rem;font-size:.7rem;letter-spacing:.08em;color:var(--ink-soft);transition:all .3s}
+  .sz:hover{border-color:var(--gold-faint);color:var(--ink)}
+  .sz.on{border-color:var(--gold);background:rgba(174,140,76,.08);color:var(--navy)}
+  .sz.out{opacity:.4;text-decoration:line-through}
+
+  /* shape shown as the stone itself */
+  .shapepick{display:flex;gap:.4rem;flex-wrap:wrap}
+  .shp{display:flex;flex-direction:column;align-items:center;gap:.25rem;padding:.4rem .5rem;border:1px solid transparent;transition:all .28s}
+  .shp svg{width:26px;height:26px}
+  .shp svg *{fill:none;stroke:var(--ink-mute);stroke-width:1.1;vector-effect:non-scaling-stroke;transition:stroke .28s}
+  .shp small{font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-mute)}
+  .shp.on{border-color:var(--gold);background:rgba(174,140,76,.08)}
+  .shp.on svg *{stroke:var(--gold)}
+  .shp.on small{color:var(--navy)}
+
+  .acts{display:flex;gap:.7rem;flex-wrap:wrap;margin:1.9rem 0 1.6rem}
+  .btn{font-size:.63rem;letter-spacing:.3em;text-transform:uppercase;padding:.95rem 1.9rem;flex:1 1 auto;min-width:10.5rem;text-align:center;transition:all .35s}
+  .btn-solid{background:var(--navy);border:1px solid var(--navy);color:var(--ivory)}
+  .btn-solid:hover{background:var(--gold);border-color:var(--gold);color:#fff}
+  .btn-gh{background:none;border:1px solid var(--line);color:var(--ink-soft)}
+  .btn-gh:hover{border-color:var(--gold);color:var(--navy)}
+
+  .copy{font-size:.88rem;line-height:1.75;color:var(--ink-soft);font-weight:200;padding-top:1.6rem;border-top:1px solid var(--line)}
+  .copy p+p{margin-top:.9rem}
+  /* Borders on the cells, NOT a 1px gap over a coloured container: when the
+     last row is short, the container's colour shows through the empty tracks
+     as a grey block that reads as a broken cell. */
+  .attrs{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));margin:1.6rem 0;
+    border-top:1px solid var(--line);border-left:1px solid var(--line);
+  }
+  .attrs>div{
+    padding:.75rem .9rem;
+    border-right:1px solid var(--line);border-bottom:1px solid var(--line);
+  }
+  .attrs dt{font-size:.5rem;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:.28rem}
+  .attrs dd{font-family:var(--serif);font-size:.95rem;color:var(--navy)}
+</style>
+</head>
+<body>
+
+<header><div class="wrap hbar">
+  <div class="hmark">Stanton <span>Kingdom</span></div>
+  <nav class="hnav"><a>Jewelry</a><a>Bespoke</a><a>Heritage</a><a>Philosophy</a><a>Contact</a></nav>
+</div></header>
+<div style="height:var(--hdr)"></div>
+
+<div class="wrap">
+  <div class="crumbs"><a>Home</a><span>/</span><a>Rings</a><span>/</span><a>Engagement</a></div>
+
+  <div class="pgrid">
+    <!-- gallery -->
+    <div>
+      <div class="gal">
+        <div class="track" id="track">
+          <div class="slide"><img src="https://cdn.shopify.com/s/files/1/0822/8923/0073/files/7c23248354327e336479345356485da4.jpg?v=1785522670" alt="" /></div>
+          <div class="slide"><img src="https://cdn.shopify.com/s/files/1/0822/8923/0073/files/Necklace-e1698231277111-768x768.jpg?v=1785522678" alt="" /></div>
+          <div class="slide"><img src="https://cdn.shopify.com/s/files/1/0822/8923/0073/files/Earrings-e1698231240846-768x768.jpg?v=1785522701" alt="" /></div>
+        </div>
+        <button class="arw l" onclick="go(-1)">&#8249;</button>
+        <button class="arw r" onclick="go(1)">&#8250;</button>
+      </div>
+      <div class="dots" id="dots">
+        <button class="dot on"></button><button class="dot"></button><button class="dot"></button>
+      </div>
+      <div class="thumbs" id="thumbs">
+        <button class="thumb on"><img src="https://cdn.shopify.com/s/files/1/0822/8923/0073/files/7c23248354327e336479345356485da4.jpg?v=1785522670" alt="" /></button>
+        <button class="thumb"><img src="https://cdn.shopify.com/s/files/1/0822/8923/0073/files/Necklace-e1698231277111-768x768.jpg?v=1785522678" alt="" /></button>
+        <button class="thumb"><img src="https://cdn.shopify.com/s/files/1/0822/8923/0073/files/Earrings-e1698231240846-768x768.jpg?v=1785522701" alt="" /></button>
+      </div>
+    </div>
+
+    <!-- detail -->
+    <div class="detail">
+      <span class="eyebrow">Classic</span>
+      <h1 class="ptitle serif">The Sovereign Solitaire</h1>
+      <p class="pspec">2.00ct round brilliant, six-prong platinum</p>
+      <div class="pprice">$8,900</div>
+
+      <div class="opt">
+        <div class="optlab">Metal <b id="m-val">Platinum</b></div>
+        <div class="opts">
+          <button class="metal on" onclick="pick(this,'m-val','Platinum')"><i class="m-white"></i><span>Platinum</span></button>
+          <button class="metal" onclick="pick(this,'m-val','White Gold')"><i class="m-white"></i><span>White Gold</span></button>
+          <button class="metal" onclick="pick(this,'m-val','Yellow Gold')"><i class="m-yellow"></i><span>Yellow Gold</span></button>
+          <button class="metal" onclick="pick(this,'m-val','Rose Gold')"><i class="m-rose"></i><span>Rose Gold</span></button>
+        </div>
+      </div>
+
+      <div class="opt">
+        <div class="optlab">Stone Shape <b id="s-val">Round</b></div>
+        <div class="opts shapepick">
+          <button class="shp on" onclick="pick(this,'s-val','Round')"><svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="17"/><circle cx="22" cy="22" r="9.5"/></svg><small>Round</small></button>
+          <button class="shp" onclick="pick(this,'s-val','Oval')"><svg viewBox="0 0 44 44"><ellipse cx="22" cy="22" rx="12.5" ry="18"/><ellipse cx="22" cy="22" rx="7" ry="10.5"/></svg><small>Oval</small></button>
+          <button class="shp" onclick="pick(this,'s-val','Emerald')"><svg viewBox="0 0 44 44"><path d="M15 4 L29 4 L35 10 L35 34 L29 40 L15 40 L9 34 L9 10 Z"/><path d="M17.5 9 L26.5 9 L30.5 13 L30.5 31 L26.5 35 L17.5 35 L13.5 31 L13.5 13 Z"/></svg><small>Emerald</small></button>
+          <button class="shp" onclick="pick(this,'s-val','Pear')"><svg viewBox="0 0 44 44"><path d="M22 3 C28 12 34 19 34 27 A12 12 0 0 1 10 27 C10 19 16 12 22 3 Z"/></svg><small>Pear</small></button>
+          <button class="shp" onclick="pick(this,'s-val','Cushion')"><svg viewBox="0 0 44 44"><rect x="6" y="6" width="32" height="32" rx="10.5"/><rect x="13" y="13" width="18" height="18" rx="6"/></svg><small>Cushion</small></button>
+        </div>
+      </div>
+
+      <div class="opt">
+        <div class="optlab">Ring Size <b id="z-val">6.5</b></div>
+        <div class="opts">
+          <button class="sz" onclick="pick(this,'z-val','5.5')">5.5</button>
+          <button class="sz" onclick="pick(this,'z-val','6')">6</button>
+          <button class="sz on" onclick="pick(this,'z-val','6.5')">6.5</button>
+          <button class="sz" onclick="pick(this,'z-val','7')">7</button>
+          <button class="sz out">7.5</button>
+        </div>
+      </div>
+
+      <div class="acts">
+        <button class="btn btn-solid">Add to Selection</button>
+        <button class="btn btn-gh">Ask a Question</button>
+      </div>
+
+      <dl class="attrs">
+        <div><dt>Collection</dt><dd>Rings</dd></div>
+        <div><dt>Type</dt><dd>Engagement</dd></div>
+        <div><dt>Carat</dt><dd>2.00ct</dd></div>
+        <div><dt>Setting</dt><dd>Six-prong</dd></div>
+      </dl>
+
+      <div class="copy">
+        <p>A six-prong platinum solitaire built around a 2.00ct round brilliant, cut to return light rather than to hold weight. The basket is kept deliberately narrow so the stone sits close to the hand.</p>
+        <p>Each Sovereign is set by a single bench jeweller from start to finish. The shank is 2.0mm, comfortable-fit, and can be sized within a half-size either way after purchase at no cost.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  var track = document.getElementById('track');
+  var dots = [].slice.call(document.querySelectorAll('#dots .dot'));
+  var thumbs = [].slice.call(document.querySelectorAll('#thumbs .thumb'));
+
+  function idx(){ return Math.round(track.scrollLeft / track.clientWidth); }
+  function to(i){
+    i = Math.max(0, Math.min(dots.length - 1, i));
+    track.scrollTo({ left: i * track.clientWidth, behavior: 'smooth' });
+  }
+  function go(d){ to(idx() + d); }
+  function sync(){
+    var i = idx();
+    dots.forEach(function(x,n){ x.classList.toggle('on', n === i); });
+    thumbs.forEach(function(x,n){ x.classList.toggle('on', n === i); });
+  }
+  track.addEventListener('scroll', function(){ window.requestAnimationFrame(sync); });
+  dots.forEach(function(x,n){ x.addEventListener('click', function(){ to(n); }); });
+  thumbs.forEach(function(x,n){ x.addEventListener('click', function(){ to(n); }); });
+
+  function pick(el, valId, label){
+    [].slice.call(el.parentNode.children).forEach(function(x){ x.classList.remove('on'); });
+    el.classList.add('on');
+    document.getElementById(valId).textContent = label;
+  }
+</script>
+</body>
+</html>
