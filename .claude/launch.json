@@ -7,6 +7,13 @@
       "runtimeArgs": ["run", "dev"],
       "port": 8080,
       "autoPort": false
+    },
+    {
+      "name": "static-build",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "serve", "dist/client", "-l", "4173"],
+      "port": 4173,
+      "autoPort": false
     }
   ]
 }

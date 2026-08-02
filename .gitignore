@@ -20,6 +20,14 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Local environment. .env carries machine-specific BUILD config (SITE_BASE) and
+# must never hold credentials: Shopify secrets belong in .dev.vars locally and
+# as Cloudflare Worker secrets in production. Patterns are exact on purpose —
+# .env.example is the tracked template and must stay visible to git.
+.env
+.env.local
+.env.*.local
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -35,6 +43,8 @@ dist-ssr
 # Windows desktop shortcuts (local only, not part of the site)
 *.lnk
 
-# Design mockups. Kept locally as reference, never deployed — anything in
-# public/ is served verbatim from the live site.
-public/_mockup-*.html
+# Design mockups. Kept locally as reference, never deployed. They live OUTSIDE
+# public/ because gitignoring is not enough on its own: Vite copies every file
+# under public/ into .output/public at build time whatever git thinks of it, so
+# a local build would still have shipped them.
+design-mockups/
