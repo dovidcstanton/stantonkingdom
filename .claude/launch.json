@@ -5,7 +5,8 @@
       "name": "unlockable-site",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "port": 8080
+      "port": 8080,
+      "autoPort": false
     }
   ]
 }

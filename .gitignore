@@ -34,3 +34,7 @@ dist-ssr
 
 # Windows desktop shortcuts (local only, not part of the site)
 *.lnk
+
+# Design mockups. Kept locally as reference, never deployed — anything in
+# public/ is served verbatim from the live site.
+public/_mockup-*.html

@@ -10,33 +10,89 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CollectionIndexRouteImport } from './routes/collection.index'
+import { Route as PieceHandleRouteImport } from './routes/piece.$handle'
+import { Route as CollectionCategoryIndexRouteImport } from './routes/collection.$category.index'
+import { Route as CollectionCategoryTypeRouteImport } from './routes/collection.$category.$type'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CollectionIndexRoute = CollectionIndexRouteImport.update({
+  id: '/collection/',
+  path: '/collection/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PieceHandleRoute = PieceHandleRouteImport.update({
+  id: '/piece/$handle',
+  path: '/piece/$handle',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CollectionCategoryIndexRoute = CollectionCategoryIndexRouteImport.update({
+  id: '/collection/$category/',
+  path: '/collection/$category/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CollectionCategoryTypeRoute = CollectionCategoryTypeRouteImport.update({
+  id: '/collection/$category/$type',
+  path: '/collection/$category/$type',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/piece/$handle': typeof PieceHandleRoute
+  '/collection/': typeof CollectionIndexRoute
+  '/collection/$category/$type': typeof CollectionCategoryTypeRoute
+  '/collection/$category/': typeof CollectionCategoryIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/piece/$handle': typeof PieceHandleRoute
+  '/collection': typeof CollectionIndexRoute
+  '/collection/$category/$type': typeof CollectionCategoryTypeRoute
+  '/collection/$category': typeof CollectionCategoryIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/piece/$handle': typeof PieceHandleRoute
+  '/collection/': typeof CollectionIndexRoute
+  '/collection/$category/$type': typeof CollectionCategoryTypeRoute
+  '/collection/$category/': typeof CollectionCategoryIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/piece/$handle'
+    | '/collection/'
+    | '/collection/$category/$type'
+    | '/collection/$category/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/piece/$handle'
+    | '/collection'
+    | '/collection/$category/$type'
+    | '/collection/$category'
+  id:
+    | '__root__'
+    | '/'
+    | '/piece/$handle'
+    | '/collection/'
+    | '/collection/$category/$type'
+    | '/collection/$category/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  PieceHandleRoute: typeof PieceHandleRoute
+  CollectionIndexRoute: typeof CollectionIndexRoute
+  CollectionCategoryTypeRoute: typeof CollectionCategoryTypeRoute
+  CollectionCategoryIndexRoute: typeof CollectionCategoryIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +104,43 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/collection/': {
+      id: '/collection/'
+      path: '/collection'
+      fullPath: '/collection/'
+      preLoaderRoute: typeof CollectionIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/piece/$handle': {
+      id: '/piece/$handle'
+      path: '/piece/$handle'
+      fullPath: '/piece/$handle'
+      preLoaderRoute: typeof PieceHandleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/collection/$category/': {
+      id: '/collection/$category/'
+      path: '/collection/$category'
+      fullPath: '/collection/$category/'
+      preLoaderRoute: typeof CollectionCategoryIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/collection/$category/$type': {
+      id: '/collection/$category/$type'
+      path: '/collection/$category/$type'
+      fullPath: '/collection/$category/$type'
+      preLoaderRoute: typeof CollectionCategoryTypeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  PieceHandleRoute: PieceHandleRoute,
+  CollectionIndexRoute: CollectionIndexRoute,
+  CollectionCategoryTypeRoute: CollectionCategoryTypeRoute,
+  CollectionCategoryIndexRoute: CollectionCategoryIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

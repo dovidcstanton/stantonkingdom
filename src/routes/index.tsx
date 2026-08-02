@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
-import { Catalog, ANY, type CatalogSelection } from "@/components/sections/Catalog";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { collectionPath } from "@/lib/catalog";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SignatureMark } from "@/components/SignatureMark";
 import phoneIconUrl from "@/assets/icon-phone-mask.png";
@@ -602,7 +602,7 @@ function HomePage() {
   const [refOpen, setRefOpen] = useState(false);
   const [refVal, setRefVal] = useState("");
   const [refInvalid, setRefInvalid] = useState(false);
-  const [selection, setSelection] = useState<CatalogSelection>(null);
+  const navigate = useNavigate();
   const formRef = useRef<HTMLFormElement>(null);
   const refDdRef = useRef<HTMLDivElement>(null);
 
@@ -831,23 +831,6 @@ function HomePage() {
     };
   }, []);
 
-  // Deep link from the navigation menu straight into the catalogue. The menu
-  // drills category then type and stops there, so every style is shown.
-  useEffect(() => {
-    const onCatalog = (e: Event) => {
-      const d = (e as CustomEvent<{ category?: string; type?: string; style?: string }>).detail;
-      // Anything the menu did not specify stays open, so stopping at "View all
-      // Rings" really does mean every ring rather than a defaulted type.
-      setSelection({
-        category: d?.category ?? ANY,
-        type: d?.type ?? ANY,
-        style: d?.style ?? ANY,
-      });
-    };
-    window.addEventListener("sk:catalog", onCatalog);
-    return () => window.removeEventListener("sk:catalog", onCatalog);
-  }, []);
-
   // Consult, reached from the navigation menu. Opens rather than toggles: the
   // menu's intent is unambiguous, whereas the card on the page is a toggle
   // because you can press it twice. The scroll waits a tick because the form is
@@ -868,12 +851,14 @@ function HomePage() {
     return () => window.removeEventListener("sk:consult", onConsult);
   }, []);
 
+  // The Collections carousel used to open the catalogue in place, further down
+  // this same page. A collection is a page of its own now, so picking one
+  // leaves home rather than growing it.
   const openCatalog = (category: string, type: string, style: string) => {
-    setSelection({ category, type, style });
-  };
-  const closeCatalog = () => {
-    setSelection(null);
-    setTimeout(() => document.getElementById("collections")?.scrollIntoView({ behavior: "smooth" }), 40);
+    navigate({
+      to: collectionPath(category || undefined, type || undefined),
+      search: style && style !== "Uniquely Yours" ? { style } : {},
+    });
   };
 
   return (
@@ -971,13 +956,10 @@ function HomePage() {
           <CollectionsCarousel onPick={openCatalog} />
         </div>
       </section>
-      {/* Catalog renders nothing until a style is picked, in which case the
-          next visible section is Journey (navy) — but once a style IS picked,
-          Catalog's own ivory background sits right below this divider instead. */}
-      <VDivider bg={selection ? "var(--ivory)" : "var(--navy)"} fill="var(--ivory)" />
-
-      {/* CATALOG */}
-      <Catalog selection={selection} onClose={closeCatalog} />
+      {/* The catalogue used to render here, and this divider had to guess its
+          background from whether a style was picked. Collections are their own
+          pages now, so the section below is always Journey, always navy. */}
+      <VDivider bg="var(--navy)" fill="var(--ivory)" />
 
       {/* JOURNEY */}
       <section id="journey">
