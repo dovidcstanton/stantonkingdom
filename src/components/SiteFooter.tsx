@@ -61,8 +61,11 @@ export function SiteFooter() {
       <div className="wrap">
         <div className="foot-grid">
           <div className="foot-brand">
+            {/* Served from this site, not hot-linked from the old WordPress
+                host. Byte-identical copy of the file that URL returned — same
+                300x297 white crest, so the footer renders exactly as before. */}
             <img
-              src="https://stantonkingdom.com/wp-content/uploads/2023/07/Asset-34@2x-8-300x297.png"
+              src="/crest-white.png"
               alt="Stanton Kingdom crest"
               loading="lazy"
             />

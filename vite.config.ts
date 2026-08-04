@@ -41,25 +41,21 @@ if (!SITE_BASE.startsWith("/") || !SITE_BASE.endsWith("/")) {
 }
 
 export default defineConfig({
-  // Static build. Nitro's cloudflare-module preset redirects the output to
-  // .output/ and emits no HTML at all — the pages only ever existed as the
-  // Worker's SSR response. Off, the build lands in dist/ where the prerenderer
-  // finds the server entry it needs to render each page to a real .html file.
-  nitro: false,
+  // Cloudflare Worker (SSR) build. Nitro is left at its default — the config
+  // package targets cloudflare — so the build lands in .output/ as a Worker
+  // entry plus a public/ asset directory, and emits no .html at all.
+  //
+  // That is the point. Every page is rendered by the Worker on request, so
+  // /collection/rings/engagement and /piece/<handle> answer correctly whether
+  // they are followed from the menu, opened cold from a pasted link, or
+  // refreshed. The previous static build prerendered only / and /collection/,
+  // which meant every deeper URL 404'd on a hard load — see the checkpoint
+  // commit 588cffb, which set the static flags precisely so this branch could
+  // reverse them.
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
     server: { entry: "server" },
-    // Emit real .html files into .output/public so the build can be uploaded to
-    // any plain static host. Without this the HTML only ever exists as the
-    // Worker's SSR response and there is no index.html to serve.
-    prerender: {
-      enabled: true,
-      crawlLinks: true,
-      // A route whose loader cannot reach Shopify at BUILD time still emits its
-      // page — it just bakes in the empty state rather than killing the build.
-      failOnError: false,
-    },
   },
   vite: {
     // Set SITE_BASE in .env to change this — see the note at the top of the file.

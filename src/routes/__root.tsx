@@ -115,7 +115,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "stylesheet", href: getAppCssHref() },
       {
         rel: "icon",
-        href: "https://stantonkingdom.com/wp-content/uploads/2023/10/cropped-Favicon-270x270.webp",
+        // Served from this site, not hot-linked from the old WordPress host.
+        // Byte-identical copy of the file that URL returned — the site has to
+        // stand on its own the moment the old host is retired.
+        href: "/favicon-stanton.webp",
       },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
