@@ -842,11 +842,27 @@ function useFaqDeepLink(
         // A little air under the bar, so the target reads as sitting at the
         // top of the page rather than tucked against the header's own edge.
         const y = window.scrollY + el.getBoundingClientRect().top - hdr - 16;
+        // Already there. Re-issuing a smooth scroll to the spot you are
+        // standing on restarts the animation for nothing, and on the last pass
+        // it would fight a user who has begun scrolling away.
+        if (Math.abs(y - window.scrollY) < 2) return;
         window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
       };
+      /* Settled more than once, and the reason is this page rather than
+         nervousness. Everything above the FAQ — the hero track at 400vh, the
+         Heritage/Philosophy duo — is pinned and multi-viewport, and its height
+         is still resolving while the scroll is in flight. A target computed
+         before that settles is stale by the time it is reached: measured live,
+         a single correction at 480ms landed "Before you ask." twenty pixels
+         UNDER the fixed header, because the document above it had grown after
+         the last measurement was taken.
+         Each pass recomputes from live rects, so the later ones correct the
+         earlier ones rather than repeating them, and the no-op guard above
+         means a pass that finds nothing wrong does nothing at all. 1200ms is
+         past the point where the pinned sections have stopped moving. */
       requestAnimationFrame(() => requestAnimationFrame(settle));
-      const t = window.setTimeout(settle, 480);
-      return () => window.clearTimeout(t);
+      const timers = [480, 1200].map((ms) => window.setTimeout(settle, ms));
+      return () => timers.forEach(window.clearTimeout);
     };
 
     // On mount and on every hash change — which is what makes a refresh of
