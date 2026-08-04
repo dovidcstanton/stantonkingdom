@@ -243,11 +243,17 @@ header:not(.scrolled) .icon-btn:hover{color:var(--gold-bright)}
      - a 1.4px bar at +/-5.3px makes the block 5.3*2 + 1.4 = 12.00px, landing
        on both guides. The bars are positioned purely by transform from the
        box centre, so the block is centred by construction.
-     - 1.4px rather than 1.5px is the perceived-weight correction, and it is
-       the only one available here: a solid bar lays down more ink per pixel of
-       length than an outline does, so three of them at the same numeric weight
-       as the lens read as the boldest thing in the row. Against a lens stroke
-       of 1.575px the bars now sit deliberately thinner.
+     - 1.35px is the perceived-weight correction, and thickness is the only
+       lever available here: a solid bar lays down more ink per pixel of length
+       than an outline does, so three of them at the same numeric weight as the
+       lens read as the boldest thing in the row. Against the drawn marks'
+       ~1.35px the bars sit deliberately at or just under it.
+       The +/-5.3px offsets are deliberately NOT restated to compensate: that
+       would move all three bar centres to hold the block at exactly 12.00px,
+       and the bars' positions are the thing that must not move. The block
+       measures 11.95px instead of 12.00 — 0.025px per edge, a fortieth of a
+       pixel, invisible and well under one rendered dot — while the centres
+       stay exactly where they were laid down.
      - 13.0px wide, down from 16px originally. The menu does not get to set the
        size of the row — it is the one mark with no body to align, so it takes
        a width that sits between the lens's 12px and the bag's 14.6px rather
@@ -262,7 +268,7 @@ header:not(.scrolled) .icon-btn:hover{color:var(--gold-bright)}
    so header height, background and padding are unchanged to the pixel, and
    --drawer-inset is measured from the box rather than from the bars. */
 .burger span{
-  position:absolute;left:50%;top:50%;display:block;width:13px;height:1.4px;
+  position:absolute;left:50%;top:50%;display:block;width:13px;height:1.35px;
   background:currentColor;border-radius:1px;transform-origin:50% 50%;
   transition:transform .28s ease-in-out,opacity .28s ease-in-out,background .4s;
 }

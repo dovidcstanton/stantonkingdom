@@ -241,8 +241,8 @@ function ContactGlyph({
    trimmed against that, lens up and bag down, all within 6% of 1.5px so no
    individual line looks unlike its neighbours:
 
-       lens 2.10u (1.575px) · bubble 2.08u (1.560px) · bag 1.95u (1.463px)
-       burger 1.40px
+       lens 1.80u (1.350px) · bubble 1.83u (1.373px) · bag 1.82u (1.365px)
+       burger 1.35px
 
    Because the ink band is fixed, each shape's geometry is derived FROM its
    stroke rather than the other way round — a thicker line means a slightly
@@ -271,14 +271,42 @@ function ContactGlyph({
    no angle changed: the centrelines shift by hundredths of a unit purely so
    the INK stays on 4.00 and 20.00, which is what the guides are.
 
+   ---- and then finer still ----
+   The weights above were a balancing exercise; this last pass is a decision
+   about the house's own line. At 1.5px the row was correct but upholstered —
+   the weight of a utility bar rather than of a jeweller's mark. The whole
+   family now sits near 1.35px: fine, even, and drawn as one hand.
+
+   The three drawn marks came down together and were re-matched at the new
+   weight rather than scaled by a common factor, because the optical penalties
+   are not proportional. The measured relationship between the nominal stroke
+   and what actually lands on screen at 18px differs per shape — a small ring
+   returns ~0.995 of its nominal, the bubble ~0.988, the bag's long straights
+   and corners only ~0.971 — so equal numbers would NOT have produced equal
+   lines. Hence 1.80 / 1.83 / 1.82: three different numbers chosen to arrive
+   at the same place.
+
+   The burger is the one that must stay under the rest. Three uninterrupted
+   bars have no counter-space to lighten them, so at equal measured thickness
+   they read heaviest; 1.35px against the drawn marks' ~1.34-1.36 measured is
+   what makes the four sit level. Its width, its +/-5.3px offsets and all
+   three bar centres are untouched — only the bars' thickness changes.
+
    Nothing here sets a height: the svgs are a fixed 18x18 in a fixed
    --icon-size box, so the header, its background and its padding are
    untouched. */
 function IconSearch() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {/* r 6.95 with a 2.1 stroke puts the ink on 4.00 and 20.00 exactly. */}
-      <circle cx="11" cy="12" r="6.95" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {/* r 7.10 with a 1.8 stroke puts the ink on 4.00 and 20.00 exactly.
+          The DRAWN circle is the same circle it has always been: its outer
+          edge sits on 4.00 and 20.00 vertically and 3.00 and 19.00
+          horizontally, to the same five decimals as before. Only the
+          centreline moved outward, by exactly half of what came off the
+          stroke — which is the arithmetic of thinning a line while holding
+          its outer edge still, not a resize. Radius and stroke are two halves
+          of one number here; neither can be read on its own. */}
+      <circle cx="11" cy="12" r="7.1" />
       {/* 30° below the horizontal — 4:00 on a clock face.
           Three angles were rendered at the real 18px size and compared: at 25°
           the handle still reads flat, at 27.5° it is acceptable, at 30° it
@@ -323,12 +351,14 @@ function IconChatBubble() {
           and well clear of the viewBox floor. */}
       {/* The scale and the stroke-width move together, and only because the
           two of them are what set the line's thickness AND where its outer
-          edge falls. Rendered stroke 2.08u (was 2.00) with the ring at 6.96u
-          (was 7.00) is the same ink band to five decimal places — 12 ± 8.00 —
-          drawn with a fractionally fuller line. strokeWidth is the rendered
-          weight divided by the scale, as before, because a scaled group scales
-          its stroke with everything else. */}
-      <g transform="translate(11 12) scale(0.8188235) translate(-12.5 -11.5)" strokeWidth="2.5402113">
+          edge falls. Rendered stroke 1.83u with the ring at 7.085u is the same
+          ink band to five decimal places — 12 ± 8.00, body width 16.00 — drawn
+          with a finer line. strokeWidth is the rendered weight divided by the
+          scale, because a scaled group scales its stroke with everything else.
+          The shape, the tail, the dots and their spacing are all carried by
+          the transform exactly as drawn; nothing inside the glyph is redrawn
+          or re-proportioned. */}
+      <g transform="translate(11 12) scale(0.8335294) translate(-12.5 -11.5)" strokeWidth="2.1954657">
         <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
         <path d="M8.5 11.5h.01M12.5 11.5h.01M16.5 11.5h.01" />
       </g>
@@ -343,16 +373,16 @@ function IconChatBubble() {
  *  the base. */
 function IconBag() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.95" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {/* Body on the band. With a 1.95 stroke the centreline runs 4.975 to
-          19.025, which puts the INK on 4.00 and 20.00 — the same two guides the
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.82" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {/* Body on the band. With a 1.82 stroke the centreline runs 4.91 to
+          19.09, which puts the INK on 4.00 and 20.00 — the same two guides the
           lens and the bubble are drawn to. It used to sit at 7..23, three units
           low, which is the whole of why this mark read as the odd one out.
           The silhouette is unchanged: same 15.2-unit top edge, same flare out
-          to the base, same 1.7 corner radius. The centreline moved 0.05u when
-          the stroke was thickened, purely so the outer edge stays on 4.00 —
-          the drawn box the eye sees is identical. */}
-      <path d="M4.4 4.975H19.6L20.8 17.325a1.7 1.7 0 0 1-1.7 1.7H4.9a1.7 1.7 0 0 1-1.7-1.7Z" />
+          to the base, same 1.7 corner radius. The centreline tracks the stroke
+          so the outer edge stays on 4.00 and 20.00 — the drawn box the eye
+          sees is identical whatever the line weight. */}
+      <path d="M4.4 4.91H19.6L20.8 17.39a1.7 1.7 0 0 1-1.7 1.7H4.9a1.7 1.7 0 0 1-1.7-1.7Z" />
       {/* The handle is what pays for the body's new position. A 4.4-unit arch
           on a body raised to the band would reach y=-2.2 and hang outside the
           viewBox; letting glyphs overflow their boxes is exactly what made this
@@ -360,8 +390,11 @@ function IconBag() {
           the body's own top edge — ink top 0.600, clear of the box — which also
           takes weight off the mark that was carrying the most of it. Its radius
           and span are untouched by the stroke change; it simply stays attached
-          to the top edge, and its own ink top is unmoved. */}
-      <path d="M8.6 4.975a3.4 3.4 0 0 1 6.8 0" />
+          to the top edge, and its own ink top is unmoved — the arc springs
+          from bodyTop − 3.4 and is drawn with half the stroke on either side,
+          so its ink top is 0.600 for ANY stroke weight. That invariance is
+          why the handle needs no attention when the line is refined. */}
+      <path d="M8.6 4.91a3.4 3.4 0 0 1 6.8 0" />
     </svg>
   );
 }
