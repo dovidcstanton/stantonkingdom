@@ -909,6 +909,35 @@ export function SiteHeader() {
     }
   };
 
+  /* The contact panel's "Before you ask." card, and the one thing on this site
+     that opens the FAQ as a LIST rather than at a single answer.
+
+     It goes through exactly the machinery a search result goes through — the
+     same `/#faq` hash, the same `sk:faq` event, the same arrival routine on the
+     home page — with the question id left off, which is what the home page
+     reads as "the section". That is deliberate: a second scroller aimed at the
+     same block would be a race, and this way a shared or refreshed `/#faq`
+     lands in precisely the same place as a click does.
+
+     It carries `detail: null`, so the list opens and nothing inside it is
+     expanded on the visitor's behalf. Search results keep their exact-question
+     behaviour untouched. */
+  const goFaqSection = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setSearchOpen(false);
+    setMenuOpen(false);
+    setContactOpen(false);
+    if (pathname !== "/") {
+      // Off the home page the hash is the whole instruction: the route mounts,
+      // reads it, and arrives. No event needed — and none would be heard,
+      // since the listener does not exist until the page is there.
+      navigate({ to: "/", hash: "faq" });
+      return;
+    }
+    navigate({ to: "/", hash: "faq" });
+    window.dispatchEvent(new CustomEvent("sk:faq", { detail: null }));
+  };
+
   // Which page the bar is currently sitting on. The wordmark is the one control
   // in the header whose right answer depends on that, and it is subscribed
   // narrowly to the pathname so a search-param change (?style=…) does not
@@ -1585,7 +1614,14 @@ export function SiteHeader() {
 
           {/* The fourth way in: not a contact route but the answer to most of
               what people open this panel to ask. */}
-          <a className="cg-faq" href="#faq" onClick={(e) => { e.preventDefault(); go("#faq"); }}>
+          {/* A real link to a real address, so it can be middle-clicked,
+              opened in a new tab and read by a crawler — and so that with the
+              handler removed it would still land in the right place. The whole
+              card is this one element: the padding, the rule beneath it and the
+              full width of the panel all belong to the anchor, which is why
+              every part of it is clickable and why the hover treatment is
+              driven from :hover on the anchor rather than on the text. */}
+          <a className="cg-faq" href="/#faq" onClick={goFaqSection}>
             {/* The mark sits outside the text block, centred across both lines,
                 so the eyebrow and the title range off one shared left edge. */}
             <ContactGlyph className="cg-faq-ico" path={ICON_INFO} />

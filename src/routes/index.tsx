@@ -777,7 +777,7 @@ function useFaqEyebrowRise() {
   }, []);
 }
 
-/** Arriving at one exact question.
+/** Arriving at the FAQ — at the head of the list, or at one exact question.
  *
  *  A search result for "how long does it take" has to finish the job: open the
  *  list, expand THAT question, and leave the visitor looking at the answer. The
@@ -806,19 +806,40 @@ function useFaqDeepLink(
   const hash = useRouterState({ select: (s) => s.location.hash });
 
   useEffect(() => {
-    const open = (id: string) => {
-      const i = FAQ.findIndex((f) => f.id === id);
-      if (i < 0) return;
+    /* One arrival, two depths.
+       `null` asks for the SECTION — open the list and put the visitor at the
+       top of it with the questions laid out beneath, choosing none of them.
+       An id asks for one exact QUESTION and expands it. Both take the same
+       route in, because the hard parts — opening the list, waiting for it to
+       exist, and clearing the fixed header — are identical, and having two
+       scrolling systems arguing over the same page is how you get a landing
+       position that depends on which one finished last. */
+    const reveal = (id: string | null) => {
+      const i = id ? FAQ.findIndex((f) => f.id === id) : -1;
+      if (id && i < 0) return;
       setFaqOpen(true);
-      setOpenFaq(i);
+      // Only a question deep link chooses a row. Arriving at the section must
+      // leave the accordion as the visitor left it — and must never expand one
+      // for them, or the list they came to browse opens already committed.
+      if (id) setOpenFaq(i);
       const settle = () => {
-        const el = document.getElementById("faq-" + id);
+        /* What has to sit under the header differs by depth, and it is the
+           whole point of the distinction. For a question it is that question.
+           For the section it is the BUTTON carrying "Before you ask." — not
+           the #faq section box, whose top is the "Questions, Answered."
+           eyebrow. Scrolling to the section put that eyebrow at the top with
+           the questions pushed below the fold; scrolling to the button puts
+           "Before you ask." at the top with question one directly under it,
+           which is the thing the visitor actually came to use. */
+        const el = id
+          ? document.getElementById("faq-" + id)
+          : document.querySelector<HTMLElement>("#faq .faq-toggle");
         if (!el) return;
         const hdr =
           parseFloat(
             getComputedStyle(document.documentElement).getPropertyValue("--sk-hdr"),
           ) || 64;
-        // A little air under the bar, so the question reads as sitting at the
+        // A little air under the bar, so the target reads as sitting at the
         // top of the page rather than tucked against the header's own edge.
         const y = window.scrollY + el.getBoundingClientRect().top - hdr - 16;
         window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
@@ -829,11 +850,14 @@ function useFaqDeepLink(
     };
 
     // On mount and on every hash change — which is what makes a refresh of
-    // /#faq-shipping land on the shipping question rather than at the top.
+    // /#faq-shipping land on the shipping question, and /#faq on the head of
+    // the list, rather than at the top of the page.
     const fromHash = (hash || "").replace(/^#/, "");
-    if (fromHash.startsWith("faq-")) open(fromHash.slice(4));
+    if (fromHash === "faq") reveal(null);
+    else if (fromHash.startsWith("faq-")) reveal(fromHash.slice(4));
 
-    const onEvent = (e: Event) => open((e as CustomEvent<string>).detail);
+    // detail carries the question id, or nothing at all for the section.
+    const onEvent = (e: Event) => reveal((e as CustomEvent<string | null>).detail ?? null);
     window.addEventListener("sk:faq", onEvent);
     return () => window.removeEventListener("sk:faq", onEvent);
     // eslint-disable-next-line react-hooks/exhaustive-deps
