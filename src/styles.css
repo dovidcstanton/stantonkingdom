@@ -234,17 +234,38 @@ header:not(.scrolled) .icon-btn:hover{color:var(--gold-bright)}
    svg icons render (a 2px stroke in a 24 box drawn at 18px is 1.5px of ink),
    so the whole row is one line weight. --drawer-inset is measured from the
    button box rather than from the bars, so it is unaffected. */
+/* ---- and onto the shared 12px band ----
+   The other three marks are each 16 units of body in a 24 viewBox drawn at
+   18px — exactly 12.00px of ink from top to bottom. The burger was a 13.5px
+   block (bars at +/-6px plus their own 1.5px), so it stood a pixel and a half
+   proud of every glyph beside it and, being the only SOLID mark in a row of
+   outlines, read heavier again than that measurement admits. Both are answered
+   here and neither touches the button box, so the header's height, background
+   and padding are unchanged to the pixel.
+     - offsets +/-5.25px with a 1.4px bar put the block at 5.25*2 + 1.4 = 11.9px,
+       sitting on the same band as the lens, the bubble and the bag body.
+     - 1.4px rather than 1.5px is the perceived-weight correction. A bare ring
+       reads lighter than a solid bar at the same width because there is simply
+       less of it in the eye's path, so matching the numbers made the burger
+       look the boldest thing in the row. A tenth of a pixel off the bars is
+       what brings the four to the same apparent weight.
+     - 14px wide, down from 16px. The menu is allowed to be the quieter mark:
+       it is three parallel lines and will always carry more ink than an
+       outline, so it harmonises at slightly under the 12px width of the bodies
+       it sits beside rather than three pixels over it.
+   --drawer-inset is measured from the button box, not from the bars, so it is
+   unaffected by any of this. */
 .burger span{
-  position:absolute;left:50%;top:50%;display:block;width:16px;height:1.5px;
+  position:absolute;left:50%;top:50%;display:block;width:14px;height:1.4px;
   background:currentColor;border-radius:1px;transform-origin:50% 50%;
   transition:transform .28s ease-in-out,opacity .28s ease-in-out,background .4s;
 }
 /* Positioned entirely by transform from the box's centre, so each bar turns
    about a stable point — the previous top-offset flow could not guarantee that
    once the middle bar started shrinking. */
-.burger span:nth-child(1){transform:translate(-50%,-50%) translateY(-6px)}
+.burger span:nth-child(1){transform:translate(-50%,-50%) translateY(-5.25px)}
 .burger span:nth-child(2){transform:translate(-50%,-50%)}
-.burger span:nth-child(3){transform:translate(-50%,-50%) translateY(6px)}
+.burger span:nth-child(3){transform:translate(-50%,-50%) translateY(5.25px)}
 /* Driven off aria-expanded so the visual state cannot drift from the state
    assistive tech is told about — there is no separate class to keep in sync. */
 /* Over the hero the header is transparent and its icons are near-white, which
@@ -1819,11 +1840,25 @@ body.contact-panel-open .cw{
   transition:box-shadow var(--emboss-ease),border-color var(--emboss-ease);
 }
 /* Pressed in — on hover, and held there for as long as the panel is open,
-   the way a latching control stays down until it is released. */
-.faq-toggle:hover::before,
+   the way a latching control stays down until it is released.
+   ---- and why the two are no longer one rule ----
+   A touch device has no pointer to leave. Tapping this button matched :hover
+   and KEPT matching it after the finger lifted, so closing the panel returned
+   aria-expanded to false and the pill still sat sunken — until you happened to
+   tap somewhere else and the browser finally moved the phantom hover off it.
+   That is the whole of the reported bug: not focus, not :active, not state.
+   The open state (aria-expanded) is the real one and applies everywhere; the
+   hover half is now offered only to devices that genuinely have a hovering
+   pointer. No :focus or :focus-visible rule is touched anywhere by this. */
 .faq-toggle[aria-expanded="true"]::before{
   border-color:var(--emboss-edge-pressed);
   box-shadow:var(--emboss-pressed);
+}
+@media(hover:hover) and (pointer:fine){
+  .faq-toggle:hover::before{
+    border-color:var(--emboss-edge-pressed);
+    box-shadow:var(--emboss-pressed);
+  }
 }
 @media(prefers-reduced-motion:reduce){
   .faq-toggle::before{transition-duration:.01ms}
@@ -1871,9 +1906,15 @@ body.contact-panel-open .cw{
 }
 /* Once the surface has sunk, the mark is given its full weight — the gap
    between the two levels is what sells the recess. */
-.faq-toggle:hover .faq-toggle-icon,
 .faq-toggle[aria-expanded="true"] .faq-toggle-icon{
   box-shadow:var(--emboss-raised);
+}
+/* Hover-capable pointers only — see the note on .faq-toggle::before above. The
+   mark latched in its lifted state on touch for exactly the same reason. */
+@media(hover:hover) and (pointer:fine){
+  .faq-toggle:hover .faq-toggle-icon{
+    box-shadow:var(--emboss-raised);
+  }
 }
 .faq-toggle-icon::before,.faq-toggle-icon::after{
   content:"";position:absolute;top:50%;left:50%;background:currentColor;
@@ -1933,7 +1974,12 @@ body.contact-panel-open .cw{
 /* Lifted above the wash. Without this the fill would paint over both. */
 .faq-txt{position:relative;z-index:1;flex:1;max-width:62ch}
 .faq-q .fx{z-index:1}
-.faq-q:hover{color:var(--gold)}
+/* Same latch, same fix: a tapped question stayed gold after its answer closed,
+   because :hover was still matching it. The open state above (.faq-item.open
+   .faq-q) is the one that matters and is untouched. */
+@media(hover:hover) and (pointer:fine){
+  .faq-q:hover{color:var(--gold)}
+}
 /* The + and × are drawn as two bars rather than typed as glyphs. A text "+"
    is centred on its line box, not on the circle: the body's 1.75 line-height
    and the glyph's own optical centre both push it off, which is the tilt that
@@ -1975,9 +2021,15 @@ body.contact-panel-open .cw{
 /* The one thing that answers a hover — the mark comes up a little further,
    while the row around it stays exactly as flat as it was. Open, it holds
    that fuller weight, standing above the recess it now sits in. */
-.faq-q:hover .fx,
 .faq-item.open .fx{
   box-shadow:var(--emboss-raised);
+}
+/* Hover-capable pointers only — see the note on .faq-toggle::before. Each
+   question's own mark latched lifted after a tap in the same way. */
+@media(hover:hover) and (pointer:fine){
+  .faq-q:hover .fx{
+    box-shadow:var(--emboss-raised);
+  }
 }
 .faq-item.open .fx{
   transform:rotate(45deg);
@@ -3098,6 +3150,64 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
   .faq-toggle-icon::before{width:14px}
   .faq-toggle-icon::after{height:14px}
   .faq-q{font-size:1.08rem;padding:1.25rem .2rem;gap:.9rem;min-height:56px}
+  /* The question's left edge, set to the answer's. Desktop gives both .9rem
+     (.faq-q's padding and .faq-a p's), but the shorthand above takes the
+     question to .2rem here while the answer keeps its .9rem — so the open
+     question sat 11.2px left of the words beneath it. Only padding-LEFT is
+     restated: the .2rem on the right is what holds the +/x mark's position,
+     and the answer, the mark and the row itself all stay exactly where they
+     are. The answer is the reference; nothing about it moves. */
+  .faq-q{padding-left:.9rem}
+
+  /* ---- "QUESTIONS, ANSWERED." rises out from behind the button ----
+     Real occlusion, not a fade. .faq-toggle::before is an opaque pill filled
+     with the page's own colour, running the full width of the control; the
+     eyebrow simply starts underneath it and slides up into place. Nothing is
+     faded and nothing flies in from off screen — for most of the move the text
+     is genuinely hidden BEHIND the button, because the button is painted over
+     it.
+     The layering is the whole trick: .faq-head is given a stacking context at
+     z-index 0 and the button one at z-index 1, so every part of the button —
+     pill, type and mark — paints above the eyebrow no matter where it is.
+     The offset is its own height plus the gap to the button plus a margin, so
+     its top edge finishes comfortably inside the pill rather than level with
+     the seam. It lands at translateY(0), which is exactly where it sits today:
+     no typography, spacing or resting position changes, and the button itself
+     never moves. */
+  #faq .faq-head{position:relative;z-index:0}
+  #faq .faq-toggle{z-index:1}
+  /* The generic scroll reveal is stood down for this one block: its 1s
+     opacity fade is precisely the "generic fade-in" this is meant not to be,
+     and it would run underneath the rise. The rise IS the entrance here. */
+  #faq .faq-head.reveal{opacity:1;transform:none;transition:none}
+  /* ---- and the pace of it ----
+     The move is slow on purpose. At .58s it was over before it registered as
+     a reveal at all; the point of this is that you SEE the words were behind
+     the button, so the travel has to last long enough to be read as travel.
+     .95s over ~34px is deliberately unhurried — barely 36px a second.
+
+     The curve is the difference between a float and a shoot. Easing hard out
+     of the gate spends most of the distance in the first fifth of the time,
+     which at this size reads as the text being flicked up and then braking.
+     A gentle toe (.32,.05) lets it get under way almost imperceptibly, and a
+     long shoulder into (.2,1) carries it the rest of the way and sets it down
+     without a bump. Nothing accelerates sharply at any point.
+
+     There is deliberately NO transition-delay. The head start comes from
+     triggering earlier in the viewport — see the rootMargin in
+     useFaqEyebrowRise() — so the rise is already running as the section
+     arrives, rather than waiting for it to land and then beginning. A delay
+     here would also have held up the return journey. */
+  #faq .faq-head .eyebrow{
+    display:block;
+    transform:translateY(calc(100% + 1rem));
+    transition:transform .95s cubic-bezier(.32,.05,.2,1);
+  }
+  #faq .faq-head.is-risen .eyebrow{transform:none}
+  @media(prefers-reduced-motion:reduce){
+    /* Straight to the resting position, with no travel and no transition. */
+    #faq .faq-head .eyebrow{transform:none;transition:none}
+  }
   .faq-q .fx::before{width:10px}
   .faq-q .fx::after{height:10px}
   .faq-a p{font-size:.88rem}
@@ -3336,6 +3446,11 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
    transition here would make it swim along behind the cursor. */
 .cw.cw-dragging{transition:none!important}
 .cw.cw-dragging .cw-btn{cursor:grabbing}
+/* Same reasoning, one property along: .cw-panel animates its height on open
+   and close, and that easing dragging along behind the finger is the whole
+   difference between a resize handle and a rubber band. It is switched off for
+   exactly as long as the strip is held, and comes back for the collapse. */
+.cw.cw-resizing .cw-panel{transition:none!important}
 /* touch-action:none hands every pointermove to the drag handler instead of
    letting the browser claim the gesture as a page scroll. */
 .cw-btn{touch-action:none}
@@ -3460,6 +3575,35 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
 .cw.open .cw-btn{opacity:0;pointer-events:none;transition:opacity .1s ease}
 @media(prefers-reduced-motion:reduce){
   .cw-panel,.cw-panel > *,.cw .cw-btn{transition-duration:.01ms!important}
+}
+/* ---- The resize strip ----
+   Desktop has no use for it: the panel there is one fixed comfortable size and
+   sits in a corner nobody needs to reclaim, so the strip is not drawn, not
+   measured and — because the handlers return early off the same media query —
+   not bound either. On a phone it becomes the panel's top edge.
+   It is navy, so it reads as the top of the header rather than as a separate
+   bar stuck above it; the only thing in it is a short pale rule, at the width
+   the eye needs to recognise a grab handle and no wider. */
+.cw-grip{display:none}
+@media(max-width:760px){
+  .cw-grip{
+    flex:none;display:flex;align-items:center;justify-content:center;
+    height:18px;background:var(--navy);cursor:ns-resize;
+    /* Every pointermove goes to the resize handler; without this the browser
+       claims the downward drag as a page scroll and the panel never moves. */
+    touch-action:none;
+  }
+  .cw-grip > span{
+    display:block;width:36px;height:3px;border-radius:2px;
+    background:rgba(251,249,244,.34);
+  }
+  /* The header is the panel's carrying handle here, so the same applies to it.
+     .cw-body is deliberately left alone: it keeps the browser's own scrolling,
+     which is the one thing that must not be reinterpreted as a gesture. */
+  .cw.open .cw-head{touch-action:none;cursor:grab}
+  .cw.open.cw-dragging .cw-head{cursor:grabbing}
+  /* The collapse chevron stays a button, not part of the handle. */
+  .cw.open .cw-collapse{touch-action:manipulation;cursor:pointer}
 }
 /* Navy header — the site's own --navy, with the mark and the name in ivory. */
 .cw-head{

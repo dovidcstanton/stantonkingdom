@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MutableRefObject, type ReactNode } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useRouterState } from "@tanstack/react-router";
 import { collectionPath } from "@/lib/catalog";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SignatureMark } from "@/components/SignatureMark";
@@ -716,10 +716,136 @@ function CollectionsCarousel({ onPick }: { onPick: (category: string, type: stri
 
 
 
+/** "Questions, answered." rising out from behind the "Before you ask." button.
+ *
+ *  There is no delay and no timer. The rise starts the instant the section
+ *  begins to come into frame and runs while it is still arriving, so the words
+ *  are already floating up as you scroll toward them and have settled by about
+ *  the time the button reaches its place. Held back even slightly, it stops
+ *  reading as part of the section's arrival and starts reading as a heading
+ *  that animated in afterwards.
+ *
+ *  Two settings do that, and they matter more than they look:
+ *
+ *  threshold 0 — fire on the very first pixel, not on some fraction of the
+ *  element. The eyebrow's box is only ~18px tall, so waiting for a proportion
+ *  of it is nearly the same as waiting for all of it.
+ *
+ *  rootMargin +20% top AND bottom — the deciding one. It grows the observer's
+ *  box past both folds, so the reveal is triggered while the section is still
+ *  approaching rather than once it has landed. That is what buys the movement
+ *  its head start: it is already underway before the button is fully in frame.
+ *
+ *  20% is a judgement between two things a fixed-duration animation cannot
+ *  both have. Too small and the rise only begins once you are looking at the
+ *  section, so it finishes well after the button has settled. Too large and it
+ *  is over before the section is even on screen — 40% was tried and on an
+ *  unhurried scroll the words were 100% risen by the time the button landed,
+ *  which is precisely the "it was always sitting there" look this exists to
+ *  avoid. 20% keeps the emergence where it has to be — on screen, in front of
+ *  the reader — while still starting it before the button comes to rest.
+ *  Seeing it happen is the point; finishing in perfect step is not.
+ *
+ *  Both edges, because the section is approached from both. With the margin on
+ *  the bottom alone the downward arrival was right and the upward one was not:
+ *  coming back up the page the section enters over the TOP fold, where there
+ *  was no margin to trigger against, so the button had already settled before
+ *  the words began to move — measured at 551ms against 584ms. Mirroring the
+ *  margin makes the two arrivals behave identically.
+ *
+ *  A repeating observer, deliberately. The page-level reveal in useReveal()
+ *  unobserves each element the first time it lands, which is right for a
+ *  one-off entrance but would let this play once and never again. This one
+ *  keeps watching, so the eyebrow drops back behind the button whenever the
+ *  section leaves and rises again on the way back — down the page or up it.
+ *
+ *  The class is all this does; the occlusion, the offset and the easing are
+ *  entirely in the stylesheet (see the note on #faq .faq-head there), and the
+ *  whole effect is scoped to mobile by the media query around those rules. On
+ *  a desktop the class lands too and changes nothing — as does reduced motion,
+ *  where the stylesheet holds the eyebrow at its resting position throughout. */
+function useFaqEyebrowRise() {
+  useEffect(() => {
+    const head = document.querySelector("#faq .faq-head");
+    if (!head) return;
+    const io = new IntersectionObserver(
+      ([entry]) => head.classList.toggle("is-risen", entry.isIntersecting),
+      { threshold: 0, rootMargin: "20% 0px 20% 0px" },
+    );
+    io.observe(head);
+    return () => io.disconnect();
+  }, []);
+}
+
+/** Arriving at one exact question.
+ *
+ *  A search result for "how long does it take" has to finish the job: open the
+ *  list, expand THAT question, and leave the visitor looking at the answer. The
+ *  old behaviour — scroll to #faq — put them at the top of a closed accordion
+ *  with ten collapsed rows and no indication which one they had asked for.
+ *
+ *  Two ways in, deliberately. The URL hash is the durable one: it survives a
+ *  refresh, it can be shared, and it is what makes the deep link real rather
+ *  than a side effect of having clicked something. The event is for the case
+ *  the hash cannot cover — asking for the question you are already on, where
+ *  the address does not change and so nothing would fire.
+ *
+ *  Positioning is done by arithmetic, not by scrollIntoView. The header is
+ *  fixed, so the browser's own "top of the viewport" is underneath it, and this
+ *  page in particular has pinned sections that make scrollIntoView land
+ *  somewhere different depending on where it started. --sk-hdr is read from the
+ *  document rather than assumed, so the 64px desktop bar and the 80px mobile
+ *  one are both cleared without this function knowing which it is looking at.
+ *  It settles twice: once on the next frame, and again after the answer's
+ *  height transition has finished, because expanding a row above the target
+ *  moves the target. */
+function useFaqDeepLink(
+  setFaqOpen: (v: boolean) => void,
+  setOpenFaq: (v: number | null) => void,
+) {
+  const hash = useRouterState({ select: (s) => s.location.hash });
+
+  useEffect(() => {
+    const open = (id: string) => {
+      const i = FAQ.findIndex((f) => f.id === id);
+      if (i < 0) return;
+      setFaqOpen(true);
+      setOpenFaq(i);
+      const settle = () => {
+        const el = document.getElementById("faq-" + id);
+        if (!el) return;
+        const hdr =
+          parseFloat(
+            getComputedStyle(document.documentElement).getPropertyValue("--sk-hdr"),
+          ) || 64;
+        // A little air under the bar, so the question reads as sitting at the
+        // top of the page rather than tucked against the header's own edge.
+        const y = window.scrollY + el.getBoundingClientRect().top - hdr - 16;
+        window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+      };
+      requestAnimationFrame(() => requestAnimationFrame(settle));
+      const t = window.setTimeout(settle, 480);
+      return () => window.clearTimeout(t);
+    };
+
+    // On mount and on every hash change — which is what makes a refresh of
+    // /#faq-shipping land on the shipping question rather than at the top.
+    const fromHash = (hash || "").replace(/^#/, "");
+    if (fromHash.startsWith("faq-")) open(fromHash.slice(4));
+
+    const onEvent = (e: Event) => open((e as CustomEvent<string>).detail);
+    window.addEventListener("sk:faq", onEvent);
+    return () => window.removeEventListener("sk:faq", onEvent);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hash]);
+}
+
 function HomePage() {
   useReveal();
+  useFaqEyebrowRise();
   const [faqOpen, setFaqOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  useFaqDeepLink(setFaqOpen, setOpenFaq);
   const [meetOpen, setMeetOpen] = useState(false);
   const [refVal, setRefVal] = useState("");
   /* All three are optional — the point is to gather context, not to make
@@ -1135,7 +1261,11 @@ function HomePage() {
           </button>
           <div className="faq-list" hidden={!faqOpen}>
             {FAQ.map((f, i) => (
-              <div key={i} className={"faq-item" + (openFaq === i ? " open" : "")}>
+              /* The question's permanent id, on the element a deep link has to
+                 find. It is the FAQ entry's own id rather than its position, so
+                 /#faq-timeline keeps meaning the same question however the ten
+                 are reordered or reworded — see the note in src/lib/faq.ts. */
+              <div key={f.id} id={"faq-" + f.id} className={"faq-item" + (openFaq === i ? " open" : "")}>
                 <button className="faq-q" onClick={() => setOpenFaq(openFaq === i ? null : i)}>
                   <span className="faq-txt">{f.q}</span>
                   <span className="fx">+</span>

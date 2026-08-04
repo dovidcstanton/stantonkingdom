@@ -7,17 +7,28 @@ const WHATSAPP_NUMBER = "16464508840";
 export const WHATSAPP_URL =
   `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`;
 
-/* The same link with the visitor's own words carried into it. Used by the
-   Concierge when it cannot answer from the FAQ: the advisor opens the chat
-   already knowing what was asked, instead of the visitor typing it twice.
-   Deliberately the same number and the same wa.me link the rest of the site
-   uses — this is one extra opener, not a second WhatsApp integration. */
+/* The visitor's own words, and nothing else. Used by the Concierge when it
+   cannot answer from the FAQ: the advisor opens the chat already knowing what
+   was asked, instead of the visitor typing it twice.
+ *
+ *  The message is now the question verbatim — no "Hi, I'd love to gain more
+ *  insight regarding:" ahead of it, nothing appended. Someone who has already
+ *  typed their question has already introduced themselves; wrapping their
+ *  sentence in a second one made the advisor read past a stock phrase to reach
+ *  the actual query, and made the visitor's own words look like a quotation
+ *  inside someone else's message.
+ *
+ *  This is the ONLY link that changed. WHATSAPP_MESSAGE and WHATSAPP_URL above
+ *  are untouched, so the footer, the contact pills, the Start Your Story panel
+ *  and the Coming Soon page all keep their existing opener. Same number, same
+ *  wa.me link, still one integration.
+ *
+ *  encodeURIComponent handles the whole string, so apostrophes, question marks,
+ *  ampersands and line breaks all survive the URL intact. */
 export function whatsappUrlWithQuestion(question: string) {
   const asked = question.trim();
   if (!asked) return WHATSAPP_URL;
-  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(
-    `Hi, I'd love to gain more insight regarding: ${asked}`,
-  )}`;
+  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(asked)}`;
 }
 
 export const SOCIAL_X = "https://x.com/stantonkingdom";

@@ -5,35 +5,9 @@ import wordmarkUrl from "../assets/stanton-wordmark.png";
 import phoneIconUrl from "../assets/icon-phone-mask.png";
 import bagIconUrl from "../assets/icon-bag-mask.png";
 import { WHATSAPP_URL } from "../lib/social";
-/* The same ten questions the homepage asks — see src/lib/faq.ts. */
-import { FAQ } from "../lib/faq";
-
-type SearchEntry = { label: string; tag: string; anchor: string; keys?: string };
-
-/* Everything the site can be asked for, in one list. The ten FAQ rows are
-   generated from the shared FAQ module rather than retyped here, so a question
-   reworded in `src/lib/faq.ts` is reworded in search at the same moment — they
-   were previously two hand-kept copies of the same ten sentences.
-
-   `keys` carries the words a visitor is likely to type that do not appear in
-   the label itself: someone looking for engagement rings types "ring", not
-   "Rings — Engagement, Wedding, Eternity, Haute Couture", and someone after a
-   refund types "refund". It is matched but never displayed. */
-const SEARCH_INDEX: SearchEntry[] = [
-  { label: "The Philosophy of the Founder", tag: "Our Belief", anchor: "#belief", keys: "about story founder belief philosophy david stanton" },
-  { label: "The David C. Stanton Collection", tag: "Collections", anchor: "#collections", keys: "shop browse jewelry jewellery pieces catalogue catalog" },
-  { label: "Rings — Engagement, Wedding, Eternity, Haute Couture", tag: "Collections", anchor: "#collections", keys: "ring engagement propose proposal wedding band eternity solitaire diamond" },
-  { label: "Necklaces — Solitaires, Pendants, Riviera & Tennis, Statement & Link", tag: "Collections", anchor: "#collections", keys: "necklace pendant chain riviera tennis choker" },
-  { label: "Bracelets — Tennis, Bangles, Statement & Link", tag: "Collections", anchor: "#collections", keys: "bracelet bangle tennis cuff wrist" },
-  { label: "Earrings — Studs, Hoops, Drops & Chandeliers", tag: "Collections", anchor: "#collections", keys: "earring stud hoop drop chandelier huggie" },
-  { label: "Our Illustrious Heritage", tag: "Heritage", anchor: "#heritage", keys: "history house legacy craftsmanship generations" },
-  { label: "Bespoke Artistry — The Journey", tag: "The Journey", anchor: "#journey", keys: "custom bespoke commission process design cad how it works steps" },
-  ...FAQ.map((f) => ({ label: f.q, tag: "Questions", anchor: "#faq", keys: f.a.join(" ") })),
-  { label: "Start Your Story — Book a Consultation", tag: "Contact", anchor: "#begin", keys: "contact consultation appointment enquire inquiry book meeting form" },
-  { label: "WhatsApp", tag: "Contact", anchor: "#begin", keys: "chat message text" },
-  { label: "Call — +1 (646) 450-8840", tag: "Contact", anchor: "#begin", keys: "phone telephone number speak" },
-  { label: "Email sales@stantonkingdom.com", tag: "Contact", anchor: "#begin", keys: "mail write" },
-];
+/* Matching, ranking and destinations all live in one place — see
+   src/lib/search.ts for why, and for what happens when the catalogue opens. */
+import { search as searchSite, type SearchRecord } from "../lib/search";
 
 // Collections is not in this list — it opens its own panel. Start Your Story is
 // not here either: it names the contact block at the foot of the drawer, and
@@ -186,11 +160,35 @@ function ContactGlyph({
    height had not changed, and the header read thicker for it.
    Back to the approved drawings. The burger is the only icon still sized to
    its own block, and that is deliberate — leave it alone. */
+/* ---- The shared optical band ----
+   Search, Contact and Bag are measured against ONE horizontal band: outer top
+   y=3, outer bottom y=19 — 16 units, which at 18px in a 24 viewBox is exactly
+   12.00px of drawn body. The lens and the bag body already sat on it; the
+   speech bubble did not (19u / 14.25px), and being the largest mark in the row
+   it read as the loudest. Its BODY is now the same 7-unit-radius ring the lens
+   is, so the two sides of the header carry an identical circle.
+   What is deliberately NOT counted in that band: the bag's handle and the
+   bubble's tail. Both are appendages the eye reads as hanging off the body
+   rather than as part of its size, and forcing either inside the band would
+   shrink a body that is already correct. Neither leaves the 24-unit viewBox —
+   the earlier attempt that let glyphs overflow their boxes is what made the
+   whole bar read heavy, and it is not repeated here.
+   Nothing in this file sets a height, so the header measures the same to the
+   pixel before and after: the svgs are a fixed 18x18 inside a fixed
+   --icon-size box. */
 function IconSearch() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="11" cy="11" r="7" />
-      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      {/* The handle was at 45° — 4:30 on a clock face — which pushed it into
+          the corner of the box and made the glyph read as a diagonal rather
+          than as a lens with a grip. It now leaves the ring at 18° below the
+          horizontal, near enough 3:30, and runs to x=22.98 so its round cap
+          stops exactly on the viewBox edge with nothing overflowing. Both
+          endpoints are computed on the ring's own centre (11,11): the near end
+          sits at radius 6.9 so it seats inside the stroke instead of showing a
+          seam, the far end at radius 12.6. */}
+      <line x1="17.56" y1="13.13" x2="22.98" y2="14.89" />
     </svg>
   );
 }
@@ -203,8 +201,26 @@ function IconSearch() {
 function IconChatBubble() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-      <path d="M8.5 11.5h.01M12.5 11.5h.01M16.5 11.5h.01" />
+      {/* The drawing is untouched; it is simply held at a smaller size.
+          The original is an 8.5-unit ring centred on (12.5,11.5) — 19 units of
+          outer body, the tallest mark in the header. This maps it onto the
+          lens's own circle: scaled by 14/17 it becomes a 7-unit ring, and
+          re-centred on (11,11) it lands on exactly the same 3-to-19 band. Doing
+          it as a transform rather than by redrawing the path is what keeps the
+          tail's curve, the dots' spacing and the ring's join in the proportions
+          they were drawn in — every relationship inside the glyph is preserved,
+          only its size changes.
+          stroke-width is pre-divided by the same factor so the RENDERED line is
+          still 2 units — a scaled group would otherwise thin its stroke to 1.65
+          and the bubble would go quietly lighter than the three marks beside
+          it. The dots are zero-length strokes, so they follow the stroke and
+          stay exactly one line-weight across, as drawn.
+          The tail now reaches y≈18.8 — a little under the body, where a tail
+          belongs, and 5 units clear of the viewBox floor. */}
+      <g transform="translate(11 11) scale(0.8235294) translate(-12.5 -11.5)" strokeWidth="2.4285714">
+        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+        <path d="M8.5 11.5h.01M12.5 11.5h.01M16.5 11.5h.01" />
+      </g>
     </svg>
   );
 }
@@ -401,6 +417,117 @@ export function SiteHeader() {
     if (Math.abs(d.dx) > width * DISMISS_FRACTION || speed > DISMISS_VELOCITY) setContactOpen(false);
   };
 
+  /* ---- Swipe to OPEN, from either edge ----
+     The mirror of the dismiss gesture above, and deliberately built out of the
+     same parts rather than beside them: an opening drawer is simply one that is
+     already `.open` and `.dragging`, held at a negative offset by the very same
+     `dragX` the close gesture uses. Progress therefore drives the panel, the
+     scrim and the shadow through exactly the code that already exists, the two
+     halves of the interaction cannot drift apart, and releasing at 60% feels
+     identical whichever direction you were going.
+
+     One listener on the document, one gesture model, and every decision made
+     once. The alternative — a touchstart handler per edge — is how you end up
+     with two drawers half-open at the same time.
+
+     Everything below is phone-only and closed-state-only. */
+  const contactOpenRef = useRef(contactOpen);
+  contactOpenRef.current = contactOpen;
+  const searchOpenRef = useRef(searchOpen);
+  searchOpenRef.current = searchOpen;
+
+  useEffect(() => {
+    const EDGE = 22;        // px of screen edge that starts a drawer
+    const INTENT = 8;       // px before the gesture declares what it is
+    const mq = window.matchMedia("(max-width:760px)");
+
+    // `side` is null until an edge press is seen, and `claimed` until the
+    // movement has proved itself horizontal. Between those two the gesture
+    // belongs to nobody and the page scrolls normally.
+    let side: "left" | "right" | null = null;
+    let x0 = 0, y0 = 0, t0 = 0, width = 320;
+    let decided = false, claimed = false, dist = 0;
+
+    const reset = () => { side = null; decided = false; claimed = false; dist = 0; };
+
+    const onStart = (e: TouchEvent) => {
+      reset();
+      if (!mq.matches || e.touches.length !== 1) return;
+      // Drawers never compete. If either is up, or search is, the edges are
+      // not listening — the open panel's own dismiss gesture owns the screen.
+      if (menuOpenRef.current || contactOpenRef.current || searchOpenRef.current) return;
+      const t = e.touches[0];
+      const target = e.target as HTMLElement | null;
+      /* The David C. Stanton Collection scrolls sideways, and on a phone its
+         first card sits against the left edge — so the gesture that browses the
+         collection is, geometrically, the gesture that opens the menu. The
+         carousel wins outright wherever the finger STARTS inside it. Origin,
+         not visibility: the section merely being on screen must not disable the
+         edges, or the drawers would be unreachable for a whole screenful of
+         page. Closing a drawer by swiping is unaffected — that gesture starts
+         on the drawer, which is above all of this. */
+      if (target?.closest?.(".col-grid")) return;
+      if (t.clientX <= EDGE) side = "left";
+      else if (t.clientX >= window.innerWidth - EDGE) side = "right";
+      else return;
+      x0 = t.clientX; y0 = t.clientY; t0 = performance.now();
+      width =
+        (side === "left" ? drawerRef.current?.offsetWidth : contactDrawerRef.current?.offsetWidth) || 320;
+    };
+
+    const onMove = (e: TouchEvent) => {
+      if (!side) return;
+      const t = e.touches[0];
+      const dx = t.clientX - x0;
+      const dy = t.clientY - y0;
+      if (!decided) {
+        if (Math.abs(dx) < INTENT && Math.abs(dy) < INTENT) return;
+        decided = true;
+        // Horizontal has to genuinely dominate, and it has to be travelling
+        // INWARD from the edge it started at. A vertical swipe that happens to
+        // begin 10px from the screen edge is a page scroll and is left alone.
+        const inward = side === "left" ? dx : -dx;
+        if (Math.abs(dx) <= Math.abs(dy) || inward <= 0) { reset(); return; }
+        claimed = true;
+        if (side === "left") setMenuOpen(true);
+        else setContactOpen(true);
+      }
+      if (!claimed) return;
+      // Once claimed, the page must not also scroll underneath the drawer.
+      if (e.cancelable) e.preventDefault();
+      dist = Math.min(Math.max(side === "left" ? dx : -dx, 0), width);
+      // Held short of home by however much of the journey is left, so the panel
+      // is under the finger from the first frame rather than animating to it.
+      if (side === "left") setDragX(-(width - dist));
+      else setContactDragX(width - dist);
+    };
+
+    const onEnd = () => {
+      if (!side || !claimed) { reset(); return; }
+      const speed = dist / Math.max(performance.now() - t0, 1);
+      const finish = dist > width * DISMISS_FRACTION || speed > DISMISS_VELOCITY;
+      const which = side;
+      reset();
+      // Dropping the offset hands the panel back to its CSS transition, which
+      // carries it the rest of the way home — or back off the edge.
+      if (which === "left") { setDragX(null); if (!finish) setMenuOpen(false); }
+      else { setContactDragX(null); if (!finish) setContactOpen(false); }
+    };
+
+    // Non-passive: claiming the gesture means preventing the page scroll, and a
+    // passive listener is not allowed to.
+    document.addEventListener("touchstart", onStart, { passive: true });
+    document.addEventListener("touchmove", onMove, { passive: false });
+    document.addEventListener("touchend", onEnd);
+    document.addEventListener("touchcancel", onEnd);
+    return () => {
+      document.removeEventListener("touchstart", onStart);
+      document.removeEventListener("touchmove", onMove);
+      document.removeEventListener("touchend", onEnd);
+      document.removeEventListener("touchcancel", onEnd);
+    };
+  }, []);
+
   // Both panels are painted at their starting offsets for one frame, then let
   // go on the next — the same two-frame handshake the ghost uses, so the swipe
   // and the travelling label begin on exactly the same tick.
@@ -486,45 +613,12 @@ export function SiteHeader() {
      answered "what is on this site?" when the question it exists to answer is
      "where is this one thing?".
 
-     Every word of the query has to land somewhere, so "ring price" narrows
-     rather than widens, and each word may match a label, its section, or the
-     hidden keys — including an answer's own text, which is how "refund" finds
-     the question that never uses the word. Matching is by prefix as well as by
-     substring, so partial words find things while they are still being typed.
-
-     Ranking, best first: a label that starts with the query, then a label that
-     contains it, then a section name, then anything reached only through the
-     keys. Within a tier the original order stands, which keeps Collections
-     above Questions the way the page itself is ordered. */
-  const matches = useMemo(() => {
-    const query = q.trim().toLowerCase();
-    if (!query) return [];
-    const words = query.split(/\s+/);
-    const scored = SEARCH_INDEX.map((item) => {
-      const label = item.label.toLowerCase();
-      const tag = item.tag.toLowerCase();
-      const keys = (item.keys ?? "").toLowerCase();
-      const hay = `${label} ${tag} ${keys}`;
-      const hit = (w: string) =>
-        hay.includes(w) || hay.split(/[^a-z0-9']+/).some((t) => t.startsWith(w));
-      if (!words.every(hit)) return null;
-      const rank = label.startsWith(query)
-        ? 0
-        : label.includes(query)
-          ? 1
-          : words.every((w) => label.includes(w))
-            ? 2
-            : tag.includes(query)
-              ? 3
-              : 4;
-      return { item, rank };
-    }).filter(Boolean) as { item: SearchEntry; rank: number }[];
-    return scored
-      .map((s, i) => ({ ...s, i }))
-      .sort((a, b) => a.rank - b.rank || a.i - b.i)
-      .map((s) => s.item)
-      .slice(0, 8);
-  }, [q]);
+     The matching itself is no longer here. It is one weighted, typo-tolerant
+     pass over a structured index in src/lib/search.ts, which is also where the
+     ranking is explained and where products will join when the catalogue opens.
+     Entirely local, so this still runs on every keystroke with nothing going
+     over the wire. */
+  const matches = useMemo(() => searchSite(q, 8).map((h) => h.record), [q]);
 
   const navigate = useNavigate();
 
@@ -533,6 +627,41 @@ export function SiteHeader() {
     setMenuOpen(false);
     setContactOpen(false);
     document.querySelector(anchor)?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  /* Where a result actually goes.
+     Three kinds of destination, and the difference between them is the whole
+     upgrade. A collection is a PAGE — navigated to by its canonical route, so
+     "engagement" lands on /collection/rings/engagement with the selection
+     already made, and that address can be refreshed, bookmarked and sent to
+     someone. A question is a specific question, not the section it lives in:
+     its permanent id travels in the URL hash so a refresh reopens the same one.
+     A page section is the only thing still reached by an anchor, because that
+     is genuinely what it is. */
+  const goResult = (r: SearchRecord) => {
+    setSearchOpen(false);
+    setMenuOpen(false);
+    setContactOpen(false);
+    const d = r.dest;
+    if (d.route !== "/") {
+      navigate({ to: d.route, search: d.search ?? {} });
+      return;
+    }
+    const hash = d.faqId ? `faq-${d.faqId}` : (d.hash ?? "").replace(/^#/, "");
+    if (pathname !== "/") {
+      navigate({ to: "/", hash: hash || undefined });
+      return;
+    }
+    /* Already home. The hash is still written, so the address bar and a
+       refresh agree with what the page just did — but the page is told
+       directly as well, because navigating to the hash you are already on is
+       not a change and would fire nothing. The home page listens for both. */
+    if (hash) navigate({ to: "/", hash });
+    if (d.faqId) {
+      window.dispatchEvent(new CustomEvent("sk:faq", { detail: d.faqId }));
+    } else if (d.hash) {
+      document.querySelector(d.hash)?.scrollIntoView({ behavior: "smooth" });
+    }
   };
 
   // Which page the bar is currently sitting on. The wordmark is the one control
@@ -884,8 +1013,8 @@ export function SiteHeader() {
           <div className="search-results">
             {matches.length ? (
               matches.map((m) => (
-                <button type="button" key={m.label} className="search-result" onClick={() => go(m.anchor)}>
-                  <span className="search-result-label">{m.label}</span>
+                <button type="button" key={m.id} className="search-result" onClick={() => goResult(m)}>
+                  <span className="search-result-label">{m.title}</span>
                   <span className="search-result-tag">{m.tag}</span>
                 </button>
               ))

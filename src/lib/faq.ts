@@ -5,11 +5,32 @@
    both places at once. They were previously two separate sets of words — the
    Concierge carried its own paraphrased knowledge base — which is exactly how
    the two drift apart and start contradicting each other. */
-export type FaqEntry = { q: string; a: string[] };
+/** `id` is the question's permanent name, and it is deliberately not its
+ *  position in this array and not a slug of its wording.
+ *
+ *  Both of those change for reasons that have nothing to do with the question:
+ *  reordering the list, or rewording "How long does a custom project take?" to
+ *  "How long will my piece take?", would silently break every link anyone had
+ *  ever shared. The id is a short hand-written noun, chosen once, and it is
+ *  what `/#faq-timeline` means — so the search result, the deep link and the
+ *  expanded answer all agree however the ten questions are edited afterwards.
+ *
+ *  `aliases` is the vocabulary a visitor arrives with, which is often not the
+ *  vocabulary the question is written in — nobody types "custom project take",
+ *  they type "how many weeks" or "turnaround". It is matched by search and
+ *  never displayed, so the question on the page stays the sentence the house
+ *  wants to be read and the matching stays as wide as it needs to be. */
+export type FaqEntry = { id: string; q: string; a: string[]; aliases?: string[] };
 
 // The questions as they are asked on the page, in the order they are asked.
 export const FAQ: FaqEntry[] = [
   {
+    id: "diamonds",
+    aliases: [
+      "natural", "lab grown", "labgrown", "lab-grown", "man made", "synthetic",
+      "cultured", "mined", "earth grown", "stone", "gemstone", "difference",
+      "real diamond", "diamon", "diamonds",
+    ],
     q: "Do you offer both natural and lab-grown diamonds?",
     a: [
       "Absolutely. The choice is entirely yours.",
@@ -18,6 +39,8 @@ export const FAQ: FaqEntry[] = [
     ],
   },
   {
+    id: "unsure",
+    aliases: ["dont know", "do not know", "no idea", "idea", "vision", "unsure", "not sure", "where to start", "help me decide", "inspiration", "guidance", "undecided"],
     q: "Do I need to know exactly what I want?",
     a: [
       "Not at all.",
@@ -25,6 +48,8 @@ export const FAQ: FaqEntry[] = [
     ],
   },
   {
+    id: "repurpose",
+    aliases: ["heirloom", "trade in", "tradein", "trade-in", "existing", "reset", "resetting", "old ring", "inherited", "upgrade", "recycle", "reuse", "remount", "family stone", "my own diamond"],
     q: "Can I repurpose or trade in my existing jewelry?",
     a: [
       "Absolutely.",
@@ -33,6 +58,8 @@ export const FAQ: FaqEntry[] = [
     ],
   },
   {
+    id: "cad",
+    aliases: ["cad", "rendering", "render", "3d", "preview", "proof", "mock up", "mockup", "approve", "approval", "see the design", "before production", "drawing", "sketch"],
     q: "Will I see the design before it's in production?",
     a: [
       "Absolutely.",
@@ -41,6 +68,8 @@ export const FAQ: FaqEntry[] = [
     ],
   },
   {
+    id: "budget",
+    aliases: ["minimum", "budget", "cost", "price", "pricing", "how much", "afford", "expensive", "cheap", "spend", "starting price", "entry price"],
     q: "Is there a minimum budget for going custom?",
     a: [
       "No.",
@@ -49,6 +78,8 @@ export const FAQ: FaqEntry[] = [
     ],
   },
   {
+    id: "payment",
+    aliases: ["payment", "pay", "deposit", "instalment", "installment", "financing", "finance", "balance", "invoice", "card", "wire", "split payment"],
     q: "How does payment work on custom?",
     a: [
       "For custom projects, we typically take a deposit.",
@@ -57,6 +88,8 @@ export const FAQ: FaqEntry[] = [
     ],
   },
   {
+    id: "timeline",
+    aliases: ["how long", "timeline", "turnaround", "turn around", "how many weeks", "weeks", "lead time", "when will it arrive", "delivery time", "how quickly", "rush", "deadline", "fast", "speed", "time frame", "timeframe", "eta"],
     q: "How long does a custom project take?",
     a: [
       "Most creations are completed within 3–6 weeks, depending on complexity.",
@@ -64,6 +97,8 @@ export const FAQ: FaqEntry[] = [
     ],
   },
   {
+    id: "changes",
+    aliases: ["change", "amend", "alter", "modify", "adjust", "revise", "refund", "return", "cancel", "exchange", "changed my mind", "not happy", "resize"],
     q: "What if I want to make a change?",
     a: [
       "We'll always do our very best to accommodate.",
@@ -72,6 +107,8 @@ export const FAQ: FaqEntry[] = [
     ],
   },
   {
+    id: "shipping",
+    aliases: ["ship", "shipping", "delivery", "deliver", "worldwide", "international", "overseas", "abroad", "insured", "insurance", "postage", "courier", "tracking", "customs", "duties"],
     q: "Do you ship worldwide?",
     a: [
       "Yes. Complimentary worldwide shipping is included with every order.",
@@ -79,6 +116,8 @@ export const FAQ: FaqEntry[] = [
     ],
   },
   {
+    id: "start",
+    aliases: ["get started", "begin", "first step", "contact", "reach out", "book", "enquire", "inquire", "appointment", "consultation", "talk to someone", "speak"],
     q: "How do I get started?",
     a: ["Reach out. We'd love to hear from you."],
   },

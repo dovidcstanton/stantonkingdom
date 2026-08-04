@@ -199,6 +199,10 @@ export function ConciergeWidget() {
   // truth and {0,0} is always "back where it belongs". Movement is clamped to
   // the viewport so it can never be dragged somewhere unreachable.
   const rootRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const headRef = useRef<HTMLDivElement>(null);
+  const footRef = useRef<HTMLDivElement>(null);
+  const gripRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const dragRef = useRef<{ px: number; py: number; ox: number; oy: number; moved: boolean } | null>(null);
@@ -209,18 +213,35 @@ export function ConciergeWidget() {
   const posRef = useRef(pos);
   posRef.current = pos;
 
-  const clampToViewport = (x: number, y: number) => {
-    const el = rootRef.current;
-    if (!el) return { x, y };
-    const r = el.getBoundingClientRect();
+  /* Which box has to stay on screen depends on what is on screen.
+     Closed, that is the launcher, and `.cw` measures it exactly. Open, it is
+     the panel — and `.cw` does NOT measure that: the panel is absolutely
+     positioned, so it is out of its parent's flow and `.cw` stays a 58px
+     square whatever size the panel has grown to. Clamping against the wrong
+     one is how an open panel gets dragged three quarters of the way off the
+     top of the screen while the launcher's own box is still dutifully inside
+     the viewport. Both boxes carry the same transform, so the same arithmetic
+     serves either — it just has to be given the right rect. */
+  const clampToViewport = (x: number, y: number, el?: HTMLElement | null) => {
+    const box = el ?? rootRef.current;
+    if (!box) return { x, y };
+    const r = box.getBoundingClientRect();
     const M = 8; // keep this much of a gap from every edge
     // Undo the current transform to recover the element's anchored position,
     // then work out how far it may travel from there in each direction.
     const baseLeft = r.left - posRef.current.x;
     const baseTop = r.top - posRef.current.y;
+    // A panel wider or taller than the space left for it would give a
+    // max below its own min and inverted clamping would fling it to the far
+    // edge; when that happens the lower bound wins and it stays pinned to the
+    // top-left of the usable area rather than jumping.
+    const minX = M - baseLeft;
+    const minY = M - baseTop;
+    const maxX = window.innerWidth - M - r.width - baseLeft;
+    const maxY = window.innerHeight - M - r.height - baseTop;
     return {
-      x: Math.min(Math.max(x, M - baseLeft), window.innerWidth - M - r.width - baseLeft),
-      y: Math.min(Math.max(y, M - baseTop), window.innerHeight - M - r.height - baseTop),
+      x: Math.min(Math.max(x, minX), Math.max(maxX, minX)),
+      y: Math.min(Math.max(y, minY), Math.max(maxY, minY)),
     };
   };
 
@@ -259,12 +280,184 @@ export function ConciergeWidget() {
   };
 
   // A resize can strand the widget off-screen; pull it back into bounds.
+  // Measured against whichever box is currently the visible one — see the note
+  // on clampToViewport.
   useEffect(() => {
-    const onResize = () => setPos((p) => clampToViewport(p.x, p.y));
+    const onResize = () =>
+      setPos((p) => clampToViewport(p.x, p.y, openRef.current ? panelRef.current : rootRef.current));
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* ================= MOBILE: move, resize, and flick away =================
+     Everything below is gated on a phone-width match and does nothing at all on
+     a desktop, where the Concierge keeps exactly the behaviour it has always
+     had: a draggable launcher and a fixed-size panel.
+
+     The panel is divided into three zones and each one does ONE thing, because
+     a surface that resizes when you meant to scroll it is worse than one that
+     does neither:
+       - the thin strip along the very top    -> resize (and flick to collapse)
+       - the rest of the navy header          -> move the whole panel
+       - the conversation                     -> scroll, and nothing else
+     Nothing is bound to .cw-body. */
+  const MOBILE_Q = "(max-width:760px)";
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_Q);
+    const sync = () => setIsMobile(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  // Kept in a ref as well so the once-bound resize listener above can read the
+  // live value without being rebuilt every time the panel opens or closes.
+  const openRef = useRef(open);
+  openRef.current = open;
+
+  /* The height the user has chosen, or null for "whatever the stylesheet says".
+     Null is not the same as the CSS value written out: leaving it null is what
+     lets the panel keep its own responsive min() expression, and — critically —
+     what lets the collapse animation run, since an inline height would pin the
+     panel open at that number while the CSS tried to shrink it back to the
+     58px launcher. */
+  const [panelH, setPanelH] = useState<number | null>(null);
+  const [resizing, setResizing] = useState(false);
+
+  /* The floor is measured, never guessed. It is the two chrome bars that must
+     stay whole — the grip and the navy header above, the composer below — plus
+     one message's worth of thread, so the visitor can always see the last thing
+     said AND type the next one. Deriving it from the live elements means a
+     type-size or padding change upstream cannot silently make the composer
+     unreachable. */
+  const MIN_BODY = 56;
+  const minPanelH = () => {
+    const chrome =
+      (gripRef.current?.offsetHeight ?? 0) +
+      (headRef.current?.offsetHeight ?? 0) +
+      (footRef.current?.offsetHeight ?? 0);
+    return chrome + MIN_BODY;
+  };
+
+  /* The ceiling is where the panel's own top edge would reach the top of the
+     screen. The panel is bottom-anchored, so height grows upward and this is
+     simply "how much room is above my bottom edge". Computed from the live rect
+     rather than from viewport height, because the panel may have been dragged
+     away from its corner first. */
+  const maxPanelH = () => {
+    const r = panelRef.current?.getBoundingClientRect();
+    if (!r) return window.innerHeight - 16;
+    return Math.max(120, r.bottom - 8);
+  };
+
+  /* Distance AND speed, both required. Distance alone would collapse the panel
+     at the end of any long slow shrink — which is exactly the intermediate
+     height the user was trying to stop at. Speed alone would fire on a quick
+     nudge. Only a gesture that is both far and fast is read as "put it away".
+     Velocity is taken over the last 120ms rather than over the whole gesture,
+     so a long unhurried drag that happens to finish with a small flick is
+     judged on how it actually ended. */
+  const FLICK_DISTANCE = 46;   // px travelled downward
+  const FLICK_VELOCITY = 0.75; // px per ms, over the closing window
+  const VELOCITY_WINDOW = 120; // ms
+
+  const resizeRef = useRef<{
+    y0: number; h0: number; dy: number;
+    samples: { y: number; t: number }[];
+  } | null>(null);
+
+  const onGripPointerDown = (e: React.PointerEvent) => {
+    if (!isMobile || !open) return;
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    const h = panelRef.current?.getBoundingClientRect().height ?? 0;
+    resizeRef.current = { y0: e.clientY, h0: h, dy: 0, samples: [{ y: e.clientY, t: performance.now() }] };
+    setResizing(true);
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* no capture — still works */ }
+  };
+
+  const onGripPointerMove = (e: React.PointerEvent) => {
+    const r = resizeRef.current;
+    if (!r) return;
+    const now = performance.now();
+    r.samples.push({ y: e.clientY, t: now });
+    while (r.samples.length > 2 && now - r.samples[0].t > VELOCITY_WINDOW) r.samples.shift();
+    r.dy = e.clientY - r.y0;
+    // Down shrinks, up expands — the strip is the panel's top edge, so it goes
+    // where the finger goes.
+    const lo = minPanelH();
+    const hi = maxPanelH();
+    setPanelH(Math.min(Math.max(r.h0 - r.dy, lo), Math.max(hi, lo)));
+  };
+
+  const onGripPointerUp = (e: React.PointerEvent) => {
+    const r = resizeRef.current;
+    resizeRef.current = null;
+    setResizing(false);
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* never captured */ }
+    if (!r) return;
+    const first = r.samples[0];
+    const last = r.samples[r.samples.length - 1];
+    const dt = Math.max(last.t - first.t, 1);
+    const v = (last.y - first.y) / dt; // positive = travelling downward
+    if (r.dy > FLICK_DISTANCE && v > FLICK_VELOCITY) {
+      // Back to the icon. The chosen height is forgotten with it, so the panel
+      // is not reopened at the sliver it was flicked away from.
+      setPanelH(null);
+      setOpen(false);
+    }
+  };
+
+  const onGripPointerCancel = () => {
+    resizeRef.current = null;
+    setResizing(false);
+  };
+
+  /* Moving the open panel reuses the launcher's own drag state wholesale —
+     same `pos`, same clamp, same {0,0} means home — so there is one notion of
+     where the Concierge is, whichever part of it was grabbed. The only
+     difference is which rect the clamp is given. */
+  const onHeadPointerDown = (e: React.PointerEvent) => {
+    if (!isMobile || !open) return;
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    // The collapse chevron is a control, not a handle.
+    if ((e.target as HTMLElement).closest(".cw-collapse")) return;
+    dragRef.current = { px: e.clientX, py: e.clientY, ox: pos.x, oy: pos.y, moved: false };
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* no capture — still works */ }
+  };
+
+  const onHeadPointerMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const dx = e.clientX - d.px;
+    const dy = e.clientY - d.py;
+    if (!d.moved && Math.hypot(dx, dy) < DRAG_SLOP) return;
+    if (!d.moved) { d.moved = true; setDragging(true); }
+    setPos(clampToViewport(d.ox + dx, d.oy + dy, panelRef.current));
+  };
+
+  const onHeadPointerUp = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    dragRef.current = null;
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* never captured */ }
+    if (d?.moved) setDragging(false);
+    // No tap behaviour on the header: pressing it and letting go does nothing,
+    // which is what you want of a handle.
+  };
+
+  /* A chosen height must not survive a change of circumstances that makes it
+     wrong. Rotating the phone, or opening the keyboard, can leave a 520px panel
+     taller than the screen; and going from a phone to a desktop layout hands
+     the panel back to the stylesheet entirely. */
+  useEffect(() => {
+    if (!isMobile) { setPanelH(null); return; }
+    const onResize = () =>
+      setPanelH((h) => (h === null ? null : Math.min(Math.max(h, minPanelH()), Math.max(maxPanelH(), minPanelH()))));
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile]);
 
   return (
     <div
@@ -273,7 +466,8 @@ export function ConciergeWidget() {
         "cw" +
         (open ? " open" : "") +
         (scrolled ? "" : " cw-prescroll") +
-        (dragging ? " cw-dragging" : "")
+        (dragging ? " cw-dragging" : "") +
+        (resizing ? " cw-resizing" : "")
       }
       style={pos.x || pos.y ? { transform: `translate(${pos.x}px, ${pos.y}px)` } : undefined}
     >
@@ -307,9 +501,46 @@ export function ConciergeWidget() {
         />
       </button>
 
-      <div className="cw-panel" aria-hidden={!open}>
-        {/* The mark and the name, and nothing else. */}
-        <div className="cw-head">
+      <div
+        className="cw-panel"
+        aria-hidden={!open}
+        ref={panelRef}
+        /* Only ever set while the panel is actually open on a phone. Applied
+           to a closed panel it would override the 58px launcher geometry and
+           the morph back into the icon would have nothing to travel to. */
+        style={isMobile && open && panelH !== null ? { height: `${panelH}px` } : undefined}
+      >
+        {/* The resize strip. Deliberately its own thin element rather than a
+            zone of the header, because the two gestures it separates —
+            "make this smaller" and "move this elsewhere" — both begin with a
+            finger pressed on the top of the panel, and only an edge the eye can
+            see makes it obvious which one you are about to get. It carries a
+            short bar for exactly that reason; the target around it is several
+            times taller than the mark, so it is grabbable without being loud.
+            Desktop never shows it and never binds it. */}
+        <div
+          className="cw-grip"
+          ref={gripRef}
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Resize the concierge"
+          onPointerDown={onGripPointerDown}
+          onPointerMove={onGripPointerMove}
+          onPointerUp={onGripPointerUp}
+          onPointerCancel={onGripPointerCancel}
+        >
+          <span aria-hidden="true" />
+        </div>
+        {/* The mark and the name, and nothing else. On a phone it is also the
+            handle the whole panel is carried by. */}
+        <div
+          className="cw-head"
+          ref={headRef}
+          onPointerDown={onHeadPointerDown}
+          onPointerMove={onHeadPointerMove}
+          onPointerUp={onHeadPointerUp}
+          onPointerCancel={onHeadPointerUp}
+        >
           <div className="cw-ident">
             <span
               className="cw-head-mark"
@@ -364,7 +595,7 @@ export function ConciergeWidget() {
           )}
         </div>
 
-        <div className="cw-foot">
+        <div className="cw-foot" ref={footRef}>
           <input
             type="text"
             placeholder="How do I get started?"

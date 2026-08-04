@@ -48,3 +48,5 @@ dist-ssr
 # under public/ into .output/public at build time whatever git thinks of it, so
 # a local build would still have shipped them.
 design-mockups/
+
+CLAUDE-HANDOFF.md
