@@ -234,38 +234,38 @@ header:not(.scrolled) .icon-btn:hover{color:var(--gold-bright)}
    svg icons render (a 2px stroke in a 24 box drawn at 18px is 1.5px of ink),
    so the whole row is one line weight. --drawer-inset is measured from the
    button box rather than from the bars, so it is unaffected. */
-/* ---- and onto the shared 12px band ----
-   The other three marks are each 16 units of body in a 24 viewBox drawn at
-   18px — exactly 12.00px of ink from top to bottom. The burger was a 13.5px
-   block (bars at +/-6px plus their own 1.5px), so it stood a pixel and a half
-   proud of every glyph beside it and, being the only SOLID mark in a row of
-   outlines, read heavier again than that measurement admits. Both are answered
-   here and neither touches the button box, so the header's height, background
-   and padding are unchanged to the pixel.
-     - offsets +/-5.25px with a 1.4px bar put the block at 5.25*2 + 1.4 = 11.9px,
-       sitting on the same band as the lens, the bubble and the bag body.
-     - 1.4px rather than 1.5px is the perceived-weight correction. A bare ring
-       reads lighter than a solid bar at the same width because there is simply
-       less of it in the eye's path, so matching the numbers made the burger
-       look the boldest thing in the row. A tenth of a pixel off the bars is
-       what brings the four to the same apparent weight.
-     - 14px wide, down from 16px. The menu is allowed to be the quieter mark:
-       it is three parallel lines and will always carry more ink than an
-       outline, so it harmonises at slightly under the 12px width of the bodies
-       it sits beside rather than three pixels over it.
-   --drawer-inset is measured from the button box, not from the bars, so it is
-   unaffected by any of this. */
+/* ---- and onto the shared 12.00px band ----
+   The three drawn marks put their BODIES between two guides — ink top and ink
+   bottom exactly 12.00px apart, centred on the button's own centre. See the
+   long note above IconSearch in SiteHeader.tsx for the band and why it moved.
+   The burger has to sit on it too or the row has three marks agreeing and one
+   arguing, which is what it was doing: a 13.5px block among 12.00px ones.
+     - a 1.4px bar at +/-5.3px makes the block 5.3*2 + 1.4 = 12.00px, landing
+       on both guides. The bars are positioned purely by transform from the
+       box centre, so the block is centred by construction.
+     - 1.4px rather than 1.5px is the perceived-weight correction, and it is
+       the only one available here: a solid bar lays down more ink per pixel of
+       length than an outline does, so three of them at the same numeric weight
+       as the lens read as the boldest thing in the row. Against a lens stroke
+       of 1.575px the bars now sit deliberately thinner.
+     - 13.5px wide, down from 16px originally. The menu does not get to set the
+       size of the row — it is the one mark with no body to align, so it takes
+       a width that sits between the lens's 12px and the bag's 14.6px rather
+       than overhanging both.
+   None of this touches the button box: .burger stays var(--icon-size) square,
+   so header height, background and padding are unchanged to the pixel, and
+   --drawer-inset is measured from the box rather than from the bars. */
 .burger span{
-  position:absolute;left:50%;top:50%;display:block;width:14px;height:1.4px;
+  position:absolute;left:50%;top:50%;display:block;width:13.5px;height:1.4px;
   background:currentColor;border-radius:1px;transform-origin:50% 50%;
   transition:transform .28s ease-in-out,opacity .28s ease-in-out,background .4s;
 }
 /* Positioned entirely by transform from the box's centre, so each bar turns
    about a stable point — the previous top-offset flow could not guarantee that
    once the middle bar started shrinking. */
-.burger span:nth-child(1){transform:translate(-50%,-50%) translateY(-5.25px)}
+.burger span:nth-child(1){transform:translate(-50%,-50%) translateY(-5.3px)}
 .burger span:nth-child(2){transform:translate(-50%,-50%)}
-.burger span:nth-child(3){transform:translate(-50%,-50%) translateY(5.25px)}
+.burger span:nth-child(3){transform:translate(-50%,-50%) translateY(5.3px)}
 /* Driven off aria-expanded so the visual state cannot drift from the state
    assistive tech is told about — there is no separate class to keep in sync. */
 /* Over the hero the header is transparent and its icons are near-white, which

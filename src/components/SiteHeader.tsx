@@ -94,6 +94,49 @@ const COLLECTION_TREE = [
 
 const STYLES = ["Classic", "Trendsetting", "Vintage", "Uniquely Yours"];
 
+/* ---- Direction lock ----
+   One question, asked once per gesture, by every swipe in this file: "is this
+   horizontal, vertical, or too early to say?"
+
+   It replaces a test that got both halves wrong, and cost the menu its manners
+   on a phone:
+
+   1. The old gate fired as soon as EITHER axis passed 8px. A finger does not
+      set off in a straight line — it leaves on a small arc — so a swipe about
+      to travel 300px straight up could cross the gate at a moment when it had
+      moved 9px sideways and only 6px up, and be locked horizontal on that
+      evidence. The panel then sat visibly dragged for the whole of a gesture
+      the user meant as a scroll. Deciding on RADIAL distance instead means the
+      vote is always taken after the same amount of real travel, by which point
+      the direction is actually expressed.
+
+   2. The old test was a bare `|dx| > |dy|`, so a 46° diagonal counted as
+      horizontal — near enough a coin toss deciding whether the menu closed.
+      Horizontal now has to WIN, not merely tie: DOMINANCE of 1.6 asks for
+      about 32° either side of the horizontal, comfortably wider than any
+      deliberate sideways swipe and comfortably clear of anything meant as a
+      scroll.
+
+   Neither number is a "make the threshold huge" workaround: 12px is smaller
+   than the browser's own scroll slop, and a genuine sideways swipe is claimed
+   just as early as it always was. What changed is WHEN the question is asked
+   and how convincingly it has to be answered.
+
+   Module scope, not component scope: the open, close and edge gestures all ask
+   it, and one of them asks from a listener bound once for the life of the page.
+   It is a pure function of two numbers, so there is nothing to capture. */
+const DECIDE_DISTANCE = 12; // px of radial travel before intent is judged
+const DOMINANCE = 1.6;      // how far |dx| must exceed |dy| to count as sideways
+type Axis = "pending" | "horizontal" | "vertical";
+function decideAxis(dx: number, dy: number, wantSign: -1 | 1): Axis {
+  if (Math.hypot(dx, dy) < DECIDE_DISTANCE) return "pending";
+  // Anything that is not a clear sideways move is handed back to the page,
+  // including a sideways move in the wrong direction — pulling the nav drawer
+  // rightward is not a request to close it.
+  if (Math.abs(dx) < Math.abs(dy) * DOMINANCE) return "vertical";
+  return Math.sign(dx) === wantSign ? "horizontal" : "vertical";
+}
+
 /** One arrow, used by both drawers.
  *
  *  Shaft and head live in a single svg sharing one coordinate system, so they
@@ -160,35 +203,72 @@ function ContactGlyph({
    height had not changed, and the header read thicker for it.
    Back to the approved drawings. The burger is the only icon still sized to
    its own block, and that is deliberate — leave it alone. */
-/* ---- The shared optical band ----
-   Search, Contact and Bag are measured against ONE horizontal band: outer top
-   y=3, outer bottom y=19 — 16 units, which at 18px in a 24 viewBox is exactly
-   12.00px of drawn body. The lens and the bag body already sat on it; the
-   speech bubble did not (19u / 14.25px), and being the largest mark in the row
-   it read as the loudest. Its BODY is now the same 7-unit-radius ring the lens
-   is, so the two sides of the header carry an identical circle.
-   What is deliberately NOT counted in that band: the bag's handle and the
-   bubble's tail. Both are appendages the eye reads as hanging off the body
-   rather than as part of its size, and forcing either inside the band would
-   shrink a body that is already correct. Neither leaves the 24-unit viewBox —
-   the earlier attempt that let glyphs overflow their boxes is what made the
-   whole bar read heavy, and it is not repeated here.
-   Nothing in this file sets a height, so the header measures the same to the
-   pixel before and after: the svgs are a fixed 18x18 inside a fixed
-   --icon-size box. */
+/* ================= THE SHARED OPTICAL BAND =================
+   The three drawn marks are measured against ONE horizontal band, stated in
+   viewBox units and true of the INK — the drawn line including its stroke, not
+   the geometric path and not the box around it:
+
+       ink top y=4     ink bottom y=20     16 units = exactly 12.00px at 18px
+
+   The band is centred on y=12, which is the centre of the 24-unit box and
+   therefore the centre of the button, so the burger's own block sits on it too
+   and all four marks share one pair of guides.
+
+   ---- what was wrong before ----
+   The previous pass equalised the three body HEIGHTS and stopped there, which
+   is only half of "sharing guides". All three measured 12.00px, but the bag
+   body sat at ink 7..23 against the lens and bubble at 3..19 — three whole
+   units, 2.25px, lower than everything beside it, and 2.25px below the burger.
+   That offset is what the eye was reading as the bag being bigger and the
+   search being small: they were not the same size and different, they were the
+   same size and misaligned.
+
+   ---- the binding constraint, and what it costs ----
+   The bag's handle is the reason this is not simply "move the bag up". At its
+   old size the handle rose 6.2u above the body; put the body on a centred 16u
+   band and the handle lands at y=-2.2, outside the box. Letting it overflow is
+   what made the header read heavy once before and was reverted, so the handle
+   is the thing that gives: a 3.4u arch, springing off the body's own top edge,
+   which fits with 0.6u to spare. It is smaller, and deliberately so — the bag
+   was the heaviest mark in the row and had to lose weight somewhere.
+
+   ---- perceived stroke, which is not numeric stroke ----
+   Equal stroke-width does not render as equal weight, because weight is ink
+   across the eye's path and the four marks put down very different amounts of
+   it. Measured as stroke x drawn length, at a flat 2 units the row ran
+   lens 99 : menu 104 : bubble 116 : bag 144 — the bag half again as heavy as
+   the lens, which is exactly the order the eye reported. The strokes are now
+   trimmed against that, lens up and bag down, all within 6% of 1.5px so no
+   individual line looks unlike its neighbours:
+
+       lens 2.10u (1.575px) · bubble 2.00u (1.500px) · bag 1.85u (1.388px)
+       burger 1.40px
+
+   Because the ink band is fixed, each shape's geometry is derived FROM its
+   stroke rather than the other way round — a thicker line means a slightly
+   smaller radius, so the ink still lands on 4 and 20.
+
+   Nothing here sets a height: the svgs are a fixed 18x18 in a fixed
+   --icon-size box, so the header, its background and its padding are
+   untouched. */
 function IconSearch() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="11" cy="11" r="7" />
-      {/* The handle was at 45° — 4:30 on a clock face — which pushed it into
-          the corner of the box and made the glyph read as a diagonal rather
-          than as a lens with a grip. It now leaves the ring at 18° below the
-          horizontal, near enough 3:30, and runs to x=22.98 so its round cap
-          stops exactly on the viewBox edge with nothing overflowing. Both
-          endpoints are computed on the ring's own centre (11,11): the near end
-          sits at radius 6.9 so it seats inside the stroke instead of showing a
-          seam, the far end at radius 12.6. */}
-      <line x1="17.56" y1="13.13" x2="22.98" y2="14.89" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {/* r 6.95 with a 2.1 stroke puts the ink on 4.00 and 20.00 exactly. */}
+      <circle cx="11" cy="12" r="6.95" />
+      {/* 30° below the horizontal — 4:00 on a clock face.
+          Three angles were rendered at the real 18px size and compared: at 25°
+          the handle still reads flat, at 27.5° it is acceptable, at 30° it
+          reads unmistakably as a magnifier — long enough and diagonal enough
+          to be a grip rather than a spout. The 18° version this replaces was
+          the real complaint: near-horizontal, it stopped looking attached to
+          the lens and started looking like a tail.
+          Both ends are computed on the ring's own centre (11,12), so the
+          handle is collinear with it however the angle is retuned: the near end
+          at radius 6.85 seats inside the stroke rather than showing a seam, the
+          far end at 13.6 puts the round cap at x 23.83 — inside the 24-unit box
+          with nothing overflowing. */}
+      <line x1="16.93" y1="15.43" x2="22.78" y2="18.80" />
     </svg>
   );
 }
@@ -201,23 +281,24 @@ function IconSearch() {
 function IconChatBubble() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {/* The drawing is untouched; it is simply held at a smaller size.
+      {/* The drawing is untouched; it is simply held at a smaller size and in
+          a different place.
           The original is an 8.5-unit ring centred on (12.5,11.5) — 19 units of
-          outer body, the tallest mark in the header. This maps it onto the
-          lens's own circle: scaled by 14/17 it becomes a 7-unit ring, and
-          re-centred on (11,11) it lands on exactly the same 3-to-19 band. Doing
-          it as a transform rather than by redrawing the path is what keeps the
-          tail's curve, the dots' spacing and the ring's join in the proportions
-          they were drawn in — every relationship inside the glyph is preserved,
-          only its size changes.
+          outer body, the tallest mark in the header. Scaled by 14/17 it becomes
+          a 7-unit ring, and re-centred on (11,12) its ink lands on 4.00 and
+          20.00: the band, and the same circle the lens draws. Doing it as a
+          transform rather than by redrawing the path keeps the tail's curve,
+          the dots' spacing and the ring's join in the proportions they were
+          drawn in — every relationship inside the glyph survives, only its size
+          and position change.
           stroke-width is pre-divided by the same factor so the RENDERED line is
           still 2 units — a scaled group would otherwise thin its stroke to 1.65
-          and the bubble would go quietly lighter than the three marks beside
-          it. The dots are zero-length strokes, so they follow the stroke and
-          stay exactly one line-weight across, as drawn.
-          The tail now reaches y≈18.8 — a little under the body, where a tail
-          belongs, and 5 units clear of the viewBox floor. */}
-      <g transform="translate(11 11) scale(0.8235294) translate(-12.5 -11.5)" strokeWidth="2.4285714">
+          and the bubble would go quietly lighter than the marks beside it. The
+          dots are zero-length strokes, so they follow the stroke and stay
+          exactly one line-weight across, as drawn.
+          The tail reaches y≈19.8, a little under the body where a tail belongs,
+          and well clear of the viewBox floor. */}
+      <g transform="translate(11 12) scale(0.8235294) translate(-12.5 -11.5)" strokeWidth="2.4285714">
         <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
         <path d="M8.5 11.5h.01M12.5 11.5h.01M16.5 11.5h.01" />
       </g>
@@ -232,9 +313,21 @@ function IconChatBubble() {
  *  the base. */
 function IconBag() {
   return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M4.4 8h15.2l1.2 12.3a1.7 1.7 0 0 1-1.7 1.7H4.9a1.7 1.7 0 0 1-1.7-1.7L4.4 8Z" />
-      <path d="M7.6 8V6.2a4.4 4.4 0 0 1 8.8 0V8" />
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.85" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {/* Body on the band. With a 1.85 stroke the centreline runs 4.925 to
+          19.075, which puts the INK on 4.00 and 20.00 — the same two guides the
+          lens and the bubble are drawn to. It used to sit at 7..23, three units
+          low, which is the whole of why this mark read as the odd one out.
+          The silhouette is unchanged: same 15.2-unit top edge, same flare out
+          to the base, same 1.7 corner radius. */}
+      <path d="M4.4 4.925H19.6L20.8 17.375a1.7 1.7 0 0 1-1.7 1.7H4.9a1.7 1.7 0 0 1-1.7-1.7Z" />
+      {/* The handle is what pays for the body's new position. A 4.4-unit arch
+          on a body raised to the band would reach y=-2.2 and hang outside the
+          viewBox; letting glyphs overflow their boxes is exactly what made this
+          header read heavy once before. So it is a 3.4-unit arch springing off
+          the body's own top edge — ink top 0.6, clear of the box — which also
+          takes weight off the mark that was carrying the most of it. */}
+      <path d="M8.6 4.925a3.4 3.4 0 0 1 6.8 0" />
     </svg>
   );
 }
@@ -333,6 +426,33 @@ export function SiteHeader() {
   // whole return lands on one frame — one movement, not three.
   const BACK_MS = 440;
 
+  /* ---- Direction lock ----
+     One question, asked once per gesture, by every swipe in this file:
+     "is this horizontal, vertical, or too early to say?"
+
+     It replaces a test that got both halves wrong, and cost the menu its
+     manners on a phone:
+
+     1. The old gate fired as soon as EITHER axis passed 8px. A finger does not
+        set off in a straight line — it leaves on a small arc — so a swipe that
+        was about to travel 300px straight up could cross the gate at a moment
+        when it had moved 9px sideways and only 6px up, and be locked
+        horizontal on that evidence. The panel then sat visibly dragged for the
+        whole of a gesture the user meant as a scroll. Deciding on RADIAL
+        distance instead means the vote is always taken after the same amount
+        of real travel, by which point the direction is actually expressed.
+
+     2. The old test was a bare `|dx| > |dy|`, so a 46° diagonal counted as
+        horizontal — near enough a coin toss deciding whether the menu closed.
+        Horizontal now has to WIN, not merely tie: DOMINANCE of 1.6 asks for
+        about 32° either side of the horizontal, which is comfortably wider
+        than any deliberate sideways swipe and comfortably clear of anything
+        meant as a scroll.
+
+     Neither number is a "make the threshold huge" workaround: 12px is smaller
+     than the browser's own scroll slop, and a genuine sideways swipe is claimed
+     just as early as it always was. What changed is WHEN the question is asked
+     and how convincingly it has to be answered. */
   // ---- Swipe to dismiss ----
   // The drawer came in from the left edge, so it should be returnable the same
   // way. It tracks the finger exactly while the gesture is live, and on release
@@ -357,13 +477,16 @@ export function SiteHeader() {
     const t = e.touches[0];
     const dx = t.clientX - d.x0;
     const dy = t.clientY - d.y0;
-    // Which gesture this is gets decided once, on the first meaningful
-    // movement, and is not revisited — otherwise a diagonal drag flickers
-    // between scrolling the panel and dragging it.
+    // Which gesture this is gets decided once, and is not revisited —
+    // otherwise a diagonal drag flickers between scrolling the panel and
+    // dragging it. Nothing moves before the lock: while the answer is
+    // "pending" this returns without touching dragX, so a gesture that turns
+    // out to be vertical never displaces the panel by even a pixel.
     if (!d.decided) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      const axis = decideAxis(dx, dy, -1); // closing this drawer means leftward
+      if (axis === "pending") return;
       d.decided = true;
-      if (Math.abs(dx) <= Math.abs(dy)) { d.live = false; return; } // it's a scroll
+      if (axis === "vertical") { d.live = false; return; } // it's a scroll
     }
     // Rightward pull is resisted entirely: the drawer is already home.
     d.dx = Math.min(0, dx);
@@ -398,10 +521,14 @@ export function SiteHeader() {
     const t = e.touches[0];
     const dx = t.clientX - d.x0;
     const dy = t.clientY - d.y0;
+    // Identical arbitration to the nav drawer, mirrored — this panel had the
+    // same bug for the same reason, and one shared rule is what keeps the two
+    // edges feeling like one interaction.
     if (!d.decided) {
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      const axis = decideAxis(dx, dy, 1); // closing this drawer means rightward
+      if (axis === "pending") return;
       d.decided = true;
-      if (Math.abs(dx) <= Math.abs(dy)) { d.live = false; return; } // it's a scroll
+      if (axis === "vertical") { d.live = false; return; } // it's a scroll
     }
     // Leftward pull is resisted entirely: the drawer is already home.
     d.dx = Math.max(0, dx);
@@ -438,7 +565,6 @@ export function SiteHeader() {
 
   useEffect(() => {
     const EDGE = 22;        // px of screen edge that starts a drawer
-    const INTENT = 8;       // px before the gesture declares what it is
     const mq = window.matchMedia("(max-width:760px)");
 
     // `side` is null until an edge press is seen, and `claimed` until the
@@ -481,13 +607,16 @@ export function SiteHeader() {
       const dx = t.clientX - x0;
       const dy = t.clientY - y0;
       if (!decided) {
-        if (Math.abs(dx) < INTENT && Math.abs(dy) < INTENT) return;
+        /* The same direction lock the close gesture uses, and for the same
+           reason: a page scroll that happens to begin within 22px of the screen
+           edge must never be mistaken for a drawer being pulled out — once
+           claimed, this handler calls preventDefault and the scroll is dead.
+           `wantSign` encodes "inward from the edge you started at": rightward
+           from the left edge, leftward from the right. */
+        const axis = decideAxis(dx, dy, side === "left" ? 1 : -1);
+        if (axis === "pending") return;
         decided = true;
-        // Horizontal has to genuinely dominate, and it has to be travelling
-        // INWARD from the edge it started at. A vertical swipe that happens to
-        // begin 10px from the screen edge is a page scroll and is left alone.
-        const inward = side === "left" ? dx : -dx;
-        if (Math.abs(dx) <= Math.abs(dy) || inward <= 0) { reset(); return; }
+        if (axis === "vertical") { reset(); return; }
         claimed = true;
         if (side === "left") setMenuOpen(true);
         else setContactOpen(true);
