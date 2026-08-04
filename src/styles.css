@@ -248,15 +248,21 @@ header:not(.scrolled) .icon-btn:hover{color:var(--gold-bright)}
        length than an outline does, so three of them at the same numeric weight
        as the lens read as the boldest thing in the row. Against a lens stroke
        of 1.575px the bars now sit deliberately thinner.
-     - 13.5px wide, down from 16px originally. The menu does not get to set the
+     - 13.0px wide, down from 16px originally. The menu does not get to set the
        size of the row — it is the one mark with no body to align, so it takes
        a width that sits between the lens's 12px and the bag's 14.6px rather
-       than overhanging both.
+       than overhanging both. The last half-pixel came off after judging the
+       four at their true 18px: three uninterrupted bars read as more mass than
+       any outline does, because there is no counter-space inside them to
+       lighten the mark, and length is the only lever left once the thickness
+       has been set against the lens. Width ONLY — the bar thickness, the
+       +/-5.3px offsets and therefore the 12.00px block and all three bar
+       centres are deliberately untouched.
    None of this touches the button box: .burger stays var(--icon-size) square,
    so header height, background and padding are unchanged to the pixel, and
    --drawer-inset is measured from the box rather than from the bars. */
 .burger span{
-  position:absolute;left:50%;top:50%;display:block;width:13.5px;height:1.4px;
+  position:absolute;left:50%;top:50%;display:block;width:13px;height:1.4px;
   background:currentColor;border-radius:1px;transform-origin:50% 50%;
   transition:transform .28s ease-in-out,opacity .28s ease-in-out,background .4s;
 }
