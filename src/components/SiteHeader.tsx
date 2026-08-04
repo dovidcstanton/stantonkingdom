@@ -533,8 +533,23 @@ export function SiteHeader() {
   const DISMISS_FRACTION = 0.3;  // of the drawer's own width
   const DISMISS_VELOCITY = 0.45; // px per ms
 
+  /* ---- Is a finger currently on this drawer? ----
+     Nothing to do with dragging it. This exists solely to tell the scroll
+     handler further down whether the page moved because the USER scrolled the
+     page, or because a gesture on this panel scroll-chained into it. See the
+     long note there; it is the difference between this panel and the contact
+     one, and it is what was sliding the menu away on a vertical swipe.
+
+     The settle deadline covers the tail: Android keeps delivering scroll
+     events for the best part of a second after the finger leaves, and that
+     inertia belongs to the gesture that started it, not to a new intention. */
+  const drawerTouchRef = useRef(false);
+  const drawerSettleRef = useRef(0);
+  const DRAWER_SETTLE_MS = 900;
+
   const onDrawerTouchStart = (e: React.TouchEvent) => {
     if (!menuOpen) return;
+    drawerTouchRef.current = true;
     const t = e.touches[0];
     drag.current = { x0: t.clientX, y0: t.clientY, dx: 0, t0: performance.now(), live: true, decided: false };
   };
@@ -560,6 +575,11 @@ export function SiteHeader() {
     setDragX(d.dx);
   };
   const onDrawerTouchEnd = () => {
+    // Cleared before anything else can return early — a gesture that was
+    // classified vertical exits above, and that is exactly the gesture whose
+    // trailing scroll must still be attributed to this panel.
+    drawerTouchRef.current = false;
+    drawerSettleRef.current = performance.now() + DRAWER_SETTLE_MS;
     const d = drag.current;
     if (!d.live) { setDragX(null); return; }
     d.live = false;
@@ -773,8 +793,37 @@ export function SiteHeader() {
         ? track.offsetTop + track.offsetHeight - window.innerHeight - 20
         : -1;
       setScrolled(y > threshold);
-      if (menuOpenRef.current && Math.abs(y - menuOpenAtYRef.current) > MENU_SCROLL_DISMISS) {
-        setMenuOpen(false);
+      /* ---- and the menu's own scroll dismissal ----
+         This rule is the whole reason the LEFT panel behaved differently from
+         the right one, and the difference was never in the gesture code: the
+         two touch handlers are mirror images and both refuse a vertical swipe
+         correctly. There is simply no scroll dismissal on the contact panel,
+         so nothing there could go wrong.
+
+         What was happening: .nav-drawer is `overflow-y:auto; touch-action:pan-y`,
+         so a vertical swipe on it pans the drawer — and the drawer's five rows
+         fit on a phone with nothing to scroll, so the pan chains straight into
+         the document behind the scrim. Ninety pixels later this line fired and
+         the menu was dismissed. The panel then slid horizontally off screen,
+         which reads exactly like a drag but is nothing of the kind: it is the
+         close animation. That is why it left no drag frames to catch, and why
+         the synthetic gesture tests kept passing — they move a finger, they do
+         not move the page.
+
+         So the fix belongs here rather than in the gesture. Scrolling that a
+         gesture ON THIS PANEL caused is not the user asking for the menu to go
+         away; it re-baselines the mark instead, so the run of scrolling the
+         drawer produced never counts toward dismissal and the counter simply
+         restarts from wherever the page came to rest. A deliberate scroll that
+         does not begin on the drawer — on the scrim, say — still dismisses it
+         exactly as before, which is what this rule was written for. */
+      if (menuOpenRef.current) {
+        const fromDrawer =
+          drawerTouchRef.current || performance.now() < drawerSettleRef.current;
+        if (fromDrawer) menuOpenAtYRef.current = y;
+        else if (Math.abs(y - menuOpenAtYRef.current) > MENU_SCROLL_DISMISS) {
+          setMenuOpen(false);
+        }
       }
     };
     window.addEventListener("scroll", onScroll, { passive: true });
