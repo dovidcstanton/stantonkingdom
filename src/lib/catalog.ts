@@ -12,6 +12,19 @@
  *  If a value is added here it must be added to the matching Shopify metafield
  *  definition too, otherwise no product can ever carry it. */
 
+/** Is the catalogue itself open to the public yet?
+ *
+ *  false hides the FINAL destinations only — the pages that list actual pieces
+ *  (/collection, /collection/rings, /collection/rings/engagement?style=…). They
+ *  render the holding page instead. Nothing about the navigation changes: the
+ *  side menu still drills Jewelry → Rings → Engagement → Classic exactly as it
+ *  does today, every level, every transition, every breadcrumb — a visitor only
+ *  meets the holding page at the moment they ask for the results themselves.
+ *
+ *  CollectionView, the piece page and everything behind them are untouched and
+ *  still compile; this is a curtain, not a demolition. Flip to true to open. */
+export const CATALOGUE_LIVE = false;
+
 /** Wildcard for any level of a selection. The menu lets you stop drilling at
  *  any depth — "View all Rings" leaves type and style open, "View all pieces"
  *  leaves all three — so each field independently needs a value meaning "don't

@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { CollectionView } from "@/components/CollectionView";
-import { validateCollectionSearch } from "@/lib/catalog";
+import { ComingSoon } from "@/components/ComingSoon";
+import { CATALOGUE_LIVE, validateCollectionSearch } from "@/lib/catalog";
 
 export const Route = createFileRoute("/collection/")({
   validateSearch: validateCollectionSearch,
@@ -20,5 +21,6 @@ export const Route = createFileRoute("/collection/")({
 
 function Everything() {
   const { style } = Route.useSearch();
+  if (!CATALOGUE_LIVE) return <ComingSoon />;
   return <CollectionView category={null} type={null} style={style ?? null} />;
 }

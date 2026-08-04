@@ -1,7 +1,8 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 
 import { CollectionView } from "@/components/CollectionView";
-import { categoryFromSlug, validateCollectionSearch } from "@/lib/catalog";
+import { ComingSoon } from "@/components/ComingSoon";
+import { CATALOGUE_LIVE, categoryFromSlug, validateCollectionSearch } from "@/lib/catalog";
 
 export const Route = createFileRoute("/collection/$category/")({
   validateSearch: validateCollectionSearch,
@@ -30,5 +31,9 @@ export const Route = createFileRoute("/collection/$category/")({
 function Category() {
   const { category } = Route.useLoaderData();
   const { style } = Route.useSearch();
+  // The loader above still runs, so a slug that names nothing is still a 404
+  // rather than a holding page — an unfinished collection and a collection that
+  // does not exist are different things and should stay different.
+  if (!CATALOGUE_LIVE) return <ComingSoon />;
   return <CollectionView category={category} type={null} style={style ?? null} />;
 }

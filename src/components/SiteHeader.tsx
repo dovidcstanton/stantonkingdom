@@ -1,34 +1,38 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { collectionPath } from "../lib/catalog";
 import wordmarkUrl from "../assets/stanton-wordmark.png";
 import phoneIconUrl from "../assets/icon-phone-mask.png";
 import bagIconUrl from "../assets/icon-bag-mask.png";
 import { WHATSAPP_URL } from "../lib/social";
+/* The same ten questions the homepage asks — see src/lib/faq.ts. */
+import { FAQ } from "../lib/faq";
 
-const SEARCH_INDEX = [
-  { label: "The Philosophy of the Founder", tag: "Our Belief", anchor: "#belief" },
-  { label: "The David C. Stanton Collection", tag: "Collections", anchor: "#collections" },
-  { label: "Rings — Engagement, Wedding, Eternity, Haute Couture", tag: "Collections", anchor: "#collections" },
-  { label: "Necklaces — Solitaires, Pendants, Riviera & Tennis, Statement & Link", tag: "Collections", anchor: "#collections" },
-  { label: "Bracelets — Tennis, Bangles, Statement & Link", tag: "Collections", anchor: "#collections" },
-  { label: "Earrings — Studs, Hoops, Drops & Chandeliers", tag: "Collections", anchor: "#collections" },
-  { label: "Our Illustrious Heritage", tag: "Heritage", anchor: "#heritage" },
-  { label: "Bespoke Artistry — The Journey", tag: "The Journey", anchor: "#journey" },
-  { label: "Do you offer both natural and lab-grown diamonds?", tag: "Questions", anchor: "#faq" },
-  { label: "Do I need to know exactly what I want?", tag: "Questions", anchor: "#faq" },
-  { label: "Can I repurpose or trade in my existing jewelry?", tag: "Questions", anchor: "#faq" },
-  { label: "Will I see the design before it's in production?", tag: "Questions", anchor: "#faq" },
-  { label: "Is there a minimum budget for going custom?", tag: "Questions", anchor: "#faq" },
-  { label: "How does payment work on custom?", tag: "Questions", anchor: "#faq" },
-  { label: "How long does a custom project take?", tag: "Questions", anchor: "#faq" },
-  { label: "What if I want to make a change?", tag: "Questions", anchor: "#faq" },
-  { label: "Do you ship worldwide?", tag: "Questions", anchor: "#faq" },
-  { label: "How do I get started?", tag: "Questions", anchor: "#faq" },
-  { label: "Start Your Story — Book a Consultation", tag: "Contact", anchor: "#begin" },
-  { label: "WhatsApp", tag: "Contact", anchor: "#begin" },
-  { label: "Call — +1 (646) 450-8840", tag: "Contact", anchor: "#begin" },
-  { label: "Email sales@stantonkingdom.com", tag: "Contact", anchor: "#begin" },
+type SearchEntry = { label: string; tag: string; anchor: string; keys?: string };
+
+/* Everything the site can be asked for, in one list. The ten FAQ rows are
+   generated from the shared FAQ module rather than retyped here, so a question
+   reworded in `src/lib/faq.ts` is reworded in search at the same moment — they
+   were previously two hand-kept copies of the same ten sentences.
+
+   `keys` carries the words a visitor is likely to type that do not appear in
+   the label itself: someone looking for engagement rings types "ring", not
+   "Rings — Engagement, Wedding, Eternity, Haute Couture", and someone after a
+   refund types "refund". It is matched but never displayed. */
+const SEARCH_INDEX: SearchEntry[] = [
+  { label: "The Philosophy of the Founder", tag: "Our Belief", anchor: "#belief", keys: "about story founder belief philosophy david stanton" },
+  { label: "The David C. Stanton Collection", tag: "Collections", anchor: "#collections", keys: "shop browse jewelry jewellery pieces catalogue catalog" },
+  { label: "Rings — Engagement, Wedding, Eternity, Haute Couture", tag: "Collections", anchor: "#collections", keys: "ring engagement propose proposal wedding band eternity solitaire diamond" },
+  { label: "Necklaces — Solitaires, Pendants, Riviera & Tennis, Statement & Link", tag: "Collections", anchor: "#collections", keys: "necklace pendant chain riviera tennis choker" },
+  { label: "Bracelets — Tennis, Bangles, Statement & Link", tag: "Collections", anchor: "#collections", keys: "bracelet bangle tennis cuff wrist" },
+  { label: "Earrings — Studs, Hoops, Drops & Chandeliers", tag: "Collections", anchor: "#collections", keys: "earring stud hoop drop chandelier huggie" },
+  { label: "Our Illustrious Heritage", tag: "Heritage", anchor: "#heritage", keys: "history house legacy craftsmanship generations" },
+  { label: "Bespoke Artistry — The Journey", tag: "The Journey", anchor: "#journey", keys: "custom bespoke commission process design cad how it works steps" },
+  ...FAQ.map((f) => ({ label: f.q, tag: "Questions", anchor: "#faq", keys: f.a.join(" ") })),
+  { label: "Start Your Story — Book a Consultation", tag: "Contact", anchor: "#begin", keys: "contact consultation appointment enquire inquiry book meeting form" },
+  { label: "WhatsApp", tag: "Contact", anchor: "#begin", keys: "chat message text" },
+  { label: "Call — +1 (646) 450-8840", tag: "Contact", anchor: "#begin", keys: "phone telephone number speak" },
+  { label: "Email sales@stantonkingdom.com", tag: "Contact", anchor: "#begin", keys: "mail write" },
 ];
 
 // Collections is not in this list — it opens its own panel. Start Your Story is
@@ -171,6 +175,17 @@ function ContactGlyph({
   );
 }
 
+/* ---- The three drawn icons sit INSIDE their 18px box ----
+   Search, Contact and Bag are each one 18px drawing in a 24 viewBox at a 2px
+   stroke, whole glyph included — handle, tail and all. They were briefly
+   redrawn to size their bodies against the burger's 16px bar block instead,
+   which meant scaling each drawing up until its lens/bubble/bag reached 16px
+   and letting the protruding parts run outside the box. It made every mark
+   individually better matched to the burger and the row collectively heavier:
+   four glyphs overflowing their boxes put visibly more ink across a bar whose
+   height had not changed, and the header read thicker for it.
+   Back to the approved drawings. The burger is the only icon still sized to
+   its own block, and that is deliberate — leave it alone. */
 function IconSearch() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -466,13 +481,49 @@ export function SiteHeader() {
     else setQ("");
   }, [searchOpen]);
 
+  /* Nothing until something is typed. Search used to render the entire index
+     the moment it opened, which made it a second copy of the menu — the panel
+     answered "what is on this site?" when the question it exists to answer is
+     "where is this one thing?".
+
+     Every word of the query has to land somewhere, so "ring price" narrows
+     rather than widens, and each word may match a label, its section, or the
+     hidden keys — including an answer's own text, which is how "refund" finds
+     the question that never uses the word. Matching is by prefix as well as by
+     substring, so partial words find things while they are still being typed.
+
+     Ranking, best first: a label that starts with the query, then a label that
+     contains it, then a section name, then anything reached only through the
+     keys. Within a tier the original order stands, which keeps Collections
+     above Questions the way the page itself is ordered. */
   const matches = useMemo(() => {
     const query = q.trim().toLowerCase();
-    return query
-      ? SEARCH_INDEX.filter(
-          (i) => i.label.toLowerCase().includes(query) || i.tag.toLowerCase().includes(query),
-        )
-      : SEARCH_INDEX;
+    if (!query) return [];
+    const words = query.split(/\s+/);
+    const scored = SEARCH_INDEX.map((item) => {
+      const label = item.label.toLowerCase();
+      const tag = item.tag.toLowerCase();
+      const keys = (item.keys ?? "").toLowerCase();
+      const hay = `${label} ${tag} ${keys}`;
+      const hit = (w: string) =>
+        hay.includes(w) || hay.split(/[^a-z0-9']+/).some((t) => t.startsWith(w));
+      if (!words.every(hit)) return null;
+      const rank = label.startsWith(query)
+        ? 0
+        : label.includes(query)
+          ? 1
+          : words.every((w) => label.includes(w))
+            ? 2
+            : tag.includes(query)
+              ? 3
+              : 4;
+      return { item, rank };
+    }).filter(Boolean) as { item: SearchEntry; rank: number }[];
+    return scored
+      .map((s, i) => ({ ...s, i }))
+      .sort((a, b) => a.rank - b.rank || a.i - b.i)
+      .map((s) => s.item)
+      .slice(0, 8);
   }, [q]);
 
   const navigate = useNavigate();
@@ -482,6 +533,32 @@ export function SiteHeader() {
     setMenuOpen(false);
     setContactOpen(false);
     document.querySelector(anchor)?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // Which page the bar is currently sitting on. The wordmark is the one control
+  // in the header whose right answer depends on that, and it is subscribed
+  // narrowly to the pathname so a search-param change (?style=…) does not
+  // re-render the whole header.
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+
+  // The wordmark means "home" everywhere, but "home" is two different actions.
+  // It used to be one: scroll to #top — an element that exists only on the home
+  // page, so from a collection or a piece the site's own logo did nothing at
+  // all. Now it goes by where you are: already home, it takes you back up the
+  // page; anywhere else, it takes you home.
+  //
+  // It is a real <Link to="/"> underneath, so it carries a genuine href — it can
+  // be middle-clicked, opened in a new tab and read by a crawler as the link to
+  // the site root, none of which "#top" ever was. The handler only intercepts
+  // the plain left-click, and only to convert it into a scroll when there is
+  // nowhere to navigate to.
+  const goHome = (e: React.MouseEvent) => {
+    setSearchOpen(false);
+    setMenuOpen(false);
+    setContactOpen(false);
+    if (pathname !== "/") return; // let the Link navigate
+    e.preventDefault();
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   // Open the catalogue at whatever depth the user stopped at. Anything left
@@ -723,7 +800,13 @@ export function SiteHeader() {
   return (
     <header
       id="header"
-      className={(scrolled ? "scrolled" : "") + (contactOpen ? " contact-open" : "")}
+      className={
+        (scrolled ? "scrolled" : "") +
+        (contactOpen ? " contact-open" : "") +
+        /* Drops the burger back out of its raised layer while the search panel
+           is up — see the .burger z-index note in the stylesheet. */
+        (searchOpen ? " search-open" : "")
+      }
     >
       <nav className="nav">
         <div className="nav-zone nav-zone-left">
@@ -749,13 +832,13 @@ export function SiteHeader() {
           </button>
         </div>
 
-        <a href="#top" className="brand" aria-label="Stanton Kingdom home" onClick={(e) => { e.preventDefault(); go("#top"); }}>
+        <Link to="/" className="brand" aria-label="Stanton Kingdom home" onClick={goHome}>
           <img
             className="brand-logo"
             src={wordmarkUrl}
             alt="Stanton Kingdom"
           />
-        </a>
+        </Link>
 
         <div className="nav-zone nav-zone-right">
           <button
@@ -792,18 +875,28 @@ export function SiteHeader() {
           />
           <button className="search-close" aria-label="Close search" onClick={() => setSearchOpen(false)}>×</button>
         </div>
-        <div className="search-results">
-          {matches.length ? (
-            matches.map((m) => (
-              <div key={m.label} className="search-result" onClick={() => go(m.anchor)}>
-                <span className="search-result-label">{m.label}</span>
-                <span className="search-result-tag">{m.tag}</span>
+        {/* Three states, and the first one is the point: at rest the panel is
+            just the field and a line of guidance. Results are only ever a
+            response to something typed. */}
+        {q.trim() === "" ? (
+          <div className="search-hint">Rings, heritage, timings, shipping — anything at all.</div>
+        ) : (
+          <div className="search-results">
+            {matches.length ? (
+              matches.map((m) => (
+                <button type="button" key={m.label} className="search-result" onClick={() => go(m.anchor)}>
+                  <span className="search-result-label">{m.label}</span>
+                  <span className="search-result-tag">{m.tag}</span>
+                </button>
+              ))
+            ) : (
+              <div className="search-empty">
+                Nothing matched that. Try “rings”, “heritage” or “shipping” — or{" "}
+                <a href={WHATSAPP_URL}>ask us on WhatsApp</a>.
               </div>
-            ))
-          ) : (
-            <div className="search-empty">No matches — try Collections, Heritage, or Contact.</div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Navigation drawer — deliberately the mirror of the contact drawer on

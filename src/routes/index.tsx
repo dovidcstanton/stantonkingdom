@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { collectionPath } from "@/lib/catalog";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SignatureMark } from "@/components/SignatureMark";
 import phoneIconUrl from "@/assets/icon-phone-mask.png";
 import { WHATSAPP_URL } from "@/lib/social";
+/* Shared with The Kingdom Concierge — see src/lib/faq.ts. */
+import { FAQ } from "@/lib/faq";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -42,6 +44,202 @@ function VDivider({ bg, fill, accent, className, flip }: { bg: string; fill: str
         />
       </svg>
     </div>
+  );
+}
+
+/* ---- Consult form dropdowns ----
+   One control, used by all four selects, so the field and the menu it opens
+   are the same object rather than a styled box that hands off to the
+   browser's own list. Marks are drawn at a single weight in currentColor and
+   inherit the field's ink: they are there to be recognised at a glance, not
+   to import eight brand palettes into a cream form. */
+const DD_ICON = {
+  referral: (
+    <svg className="ic-people" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3.4 19.4a5.8 5.8 0 0 1 11.2 0" />
+      <path d="M16.4 5.2a3 3 0 0 1 0 5.6M18.2 19.4a5.9 5.9 0 0 0-2.4-4.7" />
+    </svg>
+  ),
+  google: (
+    <svg className="ic-mass" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .307 5.387.307 12s5.56 12 12.173 12c3.573 0 6.267-1.173 8.373-3.36 2.16-2.16 2.84-5.213 2.84-7.667 0-.76-.053-1.467-.173-2.053H12.48Z" />
+    </svg>
+  ),
+  /* The same solid mark the Chat pill carries — bubble filled, handset knocked
+     out with evenodd — so the two WhatsApps on the page are one drawing. */
+  whatsapp: (
+    <svg className="ic-mass" viewBox="0 0 24 24" fill="currentColor">
+      <path
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413A11.815 11.815 0 0 0 12.05 0Zm5.422 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347Z"
+      />
+    </svg>
+  ),
+  /* Back to the outline. Instagram's mark IS a line drawing — filling it in to
+     match Facebook's mass made it the heaviest thing in the list and stopped
+     looking like the logo. Optical balance here is not a matter of construction
+     but of the core shape: this square is drawn at 18.4 units against Facebook's
+     24-unit disc, because an enclosed square reads larger than a circle of the
+     same measure, and its 1.9 stroke is set to carry the same ink as the solid
+     marks beside it. */
+  instagram: (
+    <svg className="ic-ig" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <rect x="2.8" y="2.8" width="18.4" height="18.4" rx="5.2" />
+      <circle cx="12" cy="12" r="4.5" />
+      <circle cx="17.6" cy="6.4" r="1.25" fill="currentColor" stroke="none" />
+    </svg>
+  ),
+  facebook: (
+    <svg className="ic-mass" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M9.101 23.691v-7.98H6.627v-3.667h2.474v-1.58c0-4.085 1.848-5.978 5.858-5.978.401 0 .955.042 1.468.103a8.68 8.68 0 0 1 1.141.195v3.325a8.623 8.623 0 0 0-.653-.036 26.805 26.805 0 0 0-.733-.009c-.707 0-1.259.096-1.675.309a1.686 1.686 0 0 0-.679.622c-.258.42-.374.995-.374 1.752v1.297h3.919l-.386 2.103-.287 1.564h-3.246v8.245C19.396 23.238 24 18.179 24 12.044c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.628 3.874 10.35 9.101 11.647Z" />
+    </svg>
+  ),
+  linkedin: (
+    <svg className="ic-mass" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286ZM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065Zm1.782 13.019H3.555V9h3.564v11.452ZM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003Z" />
+    </svg>
+  ),
+  tiktok: (
+    <svg className="ic-mass" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07Z" />
+    </svg>
+  ),
+  x: (
+    <svg className="ic-mass" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z" />
+    </svg>
+  ),
+  other: (
+    <svg className="ic-dots" viewBox="0 0 24 24" fill="currentColor">
+      <circle cx="5.4" cy="12" r="1.7" />
+      <circle cx="12" cy="12" r="1.7" />
+      <circle cx="18.6" cy="12" r="1.7" />
+    </svg>
+  ),
+} as const;
+
+type DdOption = { value: string; icon?: ReactNode; alt?: boolean };
+
+function Dropdown({
+  value,
+  onChange,
+  options,
+  placeholder = "Please select",
+  invalid,
+  boxRef,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: DdOption[];
+  placeholder?: string;
+  invalid?: boolean;
+  boxRef?: MutableRefObject<HTMLDivElement | null>;
+}) {
+  const [open, setOpen] = useState(false);
+  const local = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (local.current && !local.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("click", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("click", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+  const chosen = options.find((o) => o.value === value);
+  return (
+    <div
+      ref={(n) => {
+        local.current = n;
+        if (boxRef) boxRef.current = n;
+      }}
+      className={"dd" + (open ? " open" : "") + (invalid ? " invalid" : "")}
+    >
+      <button
+        type="button"
+        className="dd-btn"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        {chosen?.icon ? <span className="dd-ic">{chosen.icon}</span> : null}
+        <span className={value ? undefined : "dd-ph"}>{value || placeholder}</span>
+      </button>
+      <div className="dd-list" role="listbox">
+        {options.map((o) => (
+          <button
+            key={o.value}
+            type="button"
+            role="option"
+            aria-selected={o.value === value}
+            className={(o.alt ? "dd-alt" : "") + (o.value === value ? " is-sel" : "")}
+            onClick={() => {
+              onChange(o.value);
+              setOpen(false);
+            }}
+          >
+            {o.icon ? <span className="dd-ic">{o.icon}</span> : null}
+            <span>{o.value}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const CATEGORY_OPTS: DdOption[] = [
+  { value: "Engagement" },
+  { value: "Eternity" },
+  { value: "Ring" },
+  { value: "Earrings" },
+  { value: "Necklace" },
+  { value: "Bracelet" },
+  /* Not another category — a way of saying "none of the above yet". Set a
+     shade lighter and in italic, behind a divider, so it reads as the
+     exploratory alternative rather than as a disabled row. */
+  { value: "Exploring Ideas", alt: true },
+];
+
+const DIAMOND_OPTS: DdOption[] = [
+  { value: "Natural" },
+  { value: "Lab-Grown" },
+  { value: "Open to Either" },
+];
+
+const BUDGET_OPTS: DdOption[] = [
+  { value: "Up to $2,500" },
+  { value: "$2,500 – $5,000" },
+  { value: "$5,000+" },
+  { value: "To Be Determined", alt: true },
+];
+
+const REFERRAL_OPTS: DdOption[] = [
+  { value: "Referral", icon: DD_ICON.referral },
+  { value: "Google", icon: DD_ICON.google },
+  { value: "Instagram", icon: DD_ICON.instagram },
+  { value: "WhatsApp", icon: DD_ICON.whatsapp },
+  { value: "Facebook", icon: DD_ICON.facebook },
+  { value: "LinkedIn", icon: DD_ICON.linkedin },
+  { value: "TikTok", icon: DD_ICON.tiktok },
+  { value: "X", icon: DD_ICON.x },
+  { value: "Other", icon: DD_ICON.other },
+];
+
+/* Far-right affordance inside each Start Your Story pill. Decorative only —
+   the whole pill is the link, so this is hidden from assistive tech. */
+function Chevron() {
+  return (
+    <svg className="cc-chev" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m9 5 7 7-7 7" />
+    </svg>
   );
 }
 
@@ -115,82 +313,6 @@ function useReveal() {
   }, []);
 }
 
-/* -------- FAQ data -------- */
-const FAQ = [
-  {
-    q: "Do you offer both natural and lab-grown diamonds?",
-    a: [
-      "Absolutely. The choice is entirely yours.",
-      "Natural and lab-grown diamonds are chemically, physically, and optically identical. The only differences are origin, price, and resale potential.",
-      "Our role is to educate, design, and craft. If you'd like guidance choosing, we're here to help.",
-    ],
-  },
-  {
-    q: "Do I need to know exactly what I want?",
-    a: [
-      "Not at all.",
-      "Some clients arrive with a clear vision, others simply know they want something meaningful. Whether you have a complete design, a rough idea, or no idea at all, we'll help shape it into something powerfully personal and unmistakably yours.",
-    ],
-  },
-  {
-    q: "Can I repurpose or trade in my existing jewelry?",
-    a: [
-      "Absolutely.",
-      "A family heirloom, an existing diamond, or gold you already own — we can often repurpose it into a new creation or offer a trade-in value toward your bespoke piece.",
-      "Giving new life to something meaningful is one of our favorite parts of what we do.",
-    ],
-  },
-  {
-    q: "Will I see the design before it's in production?",
-    a: [
-      "Absolutely.",
-      "Before production begins, you'll receive a detailed CAD rendering, along with the product dimensions, total carat weight, metal type, and key specifications for your approval.",
-      "Nothing moves into production until we've got your confirmation.",
-    ],
-  },
-  {
-    q: "Is there a minimum budget for going custom?",
-    a: [
-      "No.",
-      "Every piece is unique, and the cost is shaped entirely by your preferences — design, materials, and required craftsmanship.",
-      "That flexibility is one of the greatest advantages of going custom. Tell us your vision and ideal budget. From there, we'll recommend the best design for you.",
-    ],
-  },
-  {
-    q: "How does payment work on custom?",
-    a: [
-      "For custom projects, we typically take a deposit.",
-      "Every creation is unique, so the deposit amount is tailored to the project itself. The remaining balance is due once your piece is complete and ready for collection or shipment.",
-      "If you have a preferred payment arrangement, let us know. We'll always do our best to accommodate.",
-    ],
-  },
-  {
-    q: "How long does a custom project take?",
-    a: [
-      "Most creations are completed within 3–6 weeks, depending on complexity.",
-      "If you're working toward a proposal, anniversary, birthday, or another important date, let us know. We'll do everything we can to meet your timeline, and rush orders are often possible.",
-    ],
-  },
-  {
-    q: "What if I want to make a change?",
-    a: [
-      "We'll always do our very best to accommodate.",
-      "Whether your piece is in production or already complete, we'll gladly make changes wherever possible. If additional materials or craftsmanship are required, we'll discuss your options and any associated costs with you beforehand.",
-      "As every piece is handcrafted exclusively for its owner, custom commissions are generally non-refundable. That said, every situation is unique, and we'll always work with you to ensure you're exceptionally pleased with both your piece and your experience.",
-    ],
-  },
-  {
-    q: "Do you ship worldwide?",
-    a: [
-      "Yes. Complimentary worldwide shipping is included with every order.",
-      "Every piece is fully insured in transit, discreetly packaged, and delivered safely to your door.",
-    ],
-  },
-  {
-    q: "How do I get started?",
-    a: ["Reach out. We'd love to hear from you."],
-  },
-];
 
 /* -------- Collections data -------- */
 const COLLECTIONS = [
@@ -599,20 +721,15 @@ function HomePage() {
   const [faqOpen, setFaqOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [meetOpen, setMeetOpen] = useState(false);
-  const [refOpen, setRefOpen] = useState(false);
   const [refVal, setRefVal] = useState("");
-  const [refInvalid, setRefInvalid] = useState(false);
+  /* All three are optional — the point is to gather context, not to make
+     someone settle these questions before they can say hello. */
+  const [catVal, setCatVal] = useState("");
+  const [diaVal, setDiaVal] = useState("");
+  const [budVal, setBudVal] = useState("");
+  const [fileName, setFileName] = useState("");
   const navigate = useNavigate();
   const formRef = useRef<HTMLFormElement>(null);
-  const refDdRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
-      if (refDdRef.current && !refDdRef.current.contains(e.target as Node)) setRefOpen(false);
-    };
-    document.addEventListener("click", onDoc);
-    return () => document.removeEventListener("click", onDoc);
-  }, []);
 
   // ============ Hero scroll choreography (tunable) ============
   // Track = 400vh → 300vh of scroll = ~3 viewport "strokes" on mobile.
@@ -951,7 +1068,19 @@ function HomePage() {
             <h2 className="serif canela canela-lighter collection-h2 uni-h">
               The David C. Stanton <em className="collection-em">Collection</em>
             </h2>
-            <p className="collection-sub">A style for everyone — Classic, Trendsetting, Vintage, or Uniquely Yours.</p>
+            {/* One sentence, in two unbreakable halves. The line is meant to
+                read as a single line and the type is sized to keep it that way
+                down to ~340px; below that there is genuinely no size at which
+                it both fits and stays legible, so it has to break — and these
+                spans decide where. Without them the browser breaks at whatever
+                space happens to fall last ("…Vintage, or" / "Uniquely Yours."),
+                which reads as an accident. The only break available now is the
+                one between the two halves, so the second line is always and
+                only "or Uniquely Yours." */}
+            <p className="collection-sub">
+              <span>A Style for Everyone — Classic, Trendsetting, Vintage,</span>{" "}
+              <span>or Uniquely Yours.</span>
+            </p>
           </div>
           <CollectionsCarousel onPick={openCatalog} />
         </div>
@@ -973,7 +1102,7 @@ function HomePage() {
               { n: 1, h: "Discuss", p: "Share your vision. We'll refine it together." },
               { n: 2, h: "Design", p: "Visualize every detail prior to production." },
               { n: 3, h: "Develop", p: "Master artisans bring your vision to life." },
-              { n: 4, h: "Deliver", p: "Yours and yours only, delivered worldwide." },
+              { n: 4, h: "Deliver", p: "Exclusively yours, delivered worldwide." },
             ].map((s) => (
               <div key={s.n} className="j-step reveal">
                 <span className="j-num">{s.n}</span>
@@ -1029,9 +1158,27 @@ function HomePage() {
         <h2 className="serif canela canela-light reveal uni-h begin-h">Start <em>Your Story.</em></h2>
         <div className="contact-grid reveal">
           <a className="contact-opt" href={WHATSAPP_URL}>
-            <svg className="cc-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.38 5.07L2 22l5.06-1.33A9.94 9.94 0 0 0 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm5.2 14.2c-.22.62-1.09 1.15-1.79 1.3-.48.1-1.1.18-3.2-.69-2.69-1.11-4.43-3.83-4.57-4.01-.13-.18-1.09-1.45-1.09-2.77 0-1.32.69-1.96.94-2.23.22-.24.48-.3.64-.3.16 0 .32 0 .46.01.15.01.35-.06.55.42.22.53.74 1.83.8 1.96.06.13.1.29.02.47-.08.18-.12.29-.24.44-.12.15-.25.34-.36.46-.12.12-.24.25-.1.49.14.24.62 1.02 1.33 1.65.91.81 1.68 1.06 1.92 1.18.24.12.38.1.52-.06.14-.16.6-.7.76-.94.16-.24.32-.2.54-.12.22.08 1.4.66 1.64.78.24.12.4.18.46.28.06.1.06.58-.16 1.2z"/></svg>
-            <span className="cc-label serif canela">Chat</span>
-            <span className="cc-sub">Message us anytime.</span>
+            {/* WhatsApp, built to match the weight of the solid phone and
+                calendar glyphs beside it. The official mark's own geometry
+                (simple-icons) is used, but only its OUTER contour — the ring's
+                inner edge is dropped so the bubble fills solid — and the
+                handset is knocked out of it as negative space via evenodd,
+                which is how the real logo is drawn. Filling the stock outline
+                path directly gives a thin gold ring; thickening that ring
+                would have been the wrong fix. The tail sits lower-left and the
+                handset carries the logo's tilt. */}
+            <svg className="cc-icon cc-icon-wa" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path
+                fillRule="evenodd"
+                clipRule="evenodd"
+                d="M12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413A11.815 11.815 0 0 0 12.05 0Zm5.422 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347Z"
+              />
+            </svg>
+            <span className="cc-text">
+              <span className="cc-label serif canela">Chat</span>
+              <span className="cc-sub">Message us anytime.</span>
+            </span>
+            <Chevron />
           </a>
           <a className="contact-opt" href="tel:+16464508840">
             {/* The mask sits on an inner span, not on .cc-icon itself. A mask
@@ -1045,8 +1192,11 @@ function HomePage() {
                 style={{ WebkitMaskImage: `url(${phoneIconUrl})`, maskImage: `url(${phoneIconUrl})` }}
               />
             </span>
-            <span className="cc-label serif canela">Call</span>
-            <span className="cc-sub">Speak with us directly.</span>
+            <span className="cc-text">
+              <span className="cc-label serif canela">Call</span>
+              <span className="cc-sub">Speak with us directly.</span>
+            </span>
+            <Chevron />
           </a>
           <button
             type="button"
@@ -1070,8 +1220,11 @@ function HomePage() {
                 d="M5 4h14a2.5 2.5 0 0 1 2.5 2.5V19A2.5 2.5 0 0 1 19 21.5H5A2.5 2.5 0 0 1 2.5 19V6.5A2.5 2.5 0 0 1 5 4zM4 8.7h16v1.4H4V8.7zm3.3 3.9a1.1 1.1 0 1 1 0 2.2 1.1 1.1 0 0 1 0-2.2zm4.7 0a1.1 1.1 0 1 1 0 2.2 1.1 1.1 0 0 1 0-2.2zm4.7 0a1.1 1.1 0 1 1 0 2.2 1.1 1.1 0 0 1 0-2.2z"
               />
             </svg>
-            <span className="cc-label serif canela">Consult</span>
-            <span className="cc-sub">Discuss in person or virtually.</span>
+            <span className="cc-text">
+              <span className="cc-label serif canela">Consult</span>
+              <span className="cc-sub">Discuss in person or virtually.</span>
+            </span>
+            <Chevron />
           </button>
         </div>
 
@@ -1082,13 +1235,6 @@ function HomePage() {
           action="https://formsubmit.co/sales@stantonkingdom.com"
           method="POST"
           encType="multipart/form-data"
-          onSubmit={(e) => {
-            if (!refVal) {
-              e.preventDefault();
-              setRefInvalid(true);
-              refDdRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-            }
-          }}
         >
           <input type="hidden" name="_subject" value="New inquiry — stantonkingdom.com" />
           <input type="hidden" name="_captcha" value="false" />
@@ -1100,38 +1246,71 @@ function HomePage() {
             <label>Email<input type="email" name="email" required /></label>
             <label>Contact Number<input type="tel" name="phone" required /></label>
           </div>
-          <label>How did you hear about us?
-            <input type="hidden" name="referral" value={refVal} />
-            <div
-              ref={refDdRef}
-              className={"dd" + (refOpen ? " open" : "") + (refInvalid ? " invalid" : "")}
-            >
-              <button type="button" className="dd-btn" onClick={() => setRefOpen((v) => !v)}>
-                {refVal || "Please select"}
-              </button>
-              <div className="dd-list">
-                {["Friend / Referral", "Google", "Instagram", "LinkedIn", "TikTok", "X", "Other"].map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => {
-                      setRefVal(v);
-                      setRefOpen(false);
-                      setRefInvalid(false);
-                    }}
-                  >
-                    {v}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <span className="dd-error">Please select an option</span>
+          {/* The four selects pair off exactly as the two rows above them do —
+              same columns, same gap — which takes four full-width rows out of
+              the form's height. */}
+          <div className="f-row">
+            <label>Category
+              <input type="hidden" name="category" value={catVal} />
+              <Dropdown value={catVal} onChange={setCatVal} options={CATEGORY_OPTS} />
+            </label>
+            <label>Diamond Type
+              <input type="hidden" name="diamond_preference" value={diaVal} />
+              <Dropdown value={diaVal} onChange={setDiaVal} options={DIAMOND_OPTS} />
+            </label>
+          </div>
+          <div className="f-row f-row-stack">
+            <label>Ideal Budget
+              <input type="hidden" name="ideal_budget" value={budVal} />
+              <Dropdown value={budVal} onChange={setBudVal} options={BUDGET_OPTS} />
+            </label>
+            {/* The one caption too long for half a phone row. Rather than
+                shrink it or let it wrap, this row stops being a row on a
+                phone and both fields take the full width — see .f-row-stack.
+                The pair still sits two-up on tablet and desktop. */}
+            <label>How did you hear about us?
+              <input type="hidden" name="referral" value={refVal} />
+              <Dropdown value={refVal} onChange={setRefVal} options={REFERRAL_OPTS} />
+            </label>
+          </div>
+          {/* Only ever one of the two, and only when the answer above calls for
+              it. Rendered inside the flow rather than absolutely, so the fields
+              beneath simply move down by one row. */}
+          {/* "(optional)" is said out loud in exactly one place on this form:
+              naming a referrer is an invitation, and without it the revealed
+              field reads as a demand for information the visitor may not have. */}
+          {refVal === "Referral" && (
+            <label className="f-cond">Referred by <span className="f-hint">(optional)</span>
+              <input type="text" name="referred_by" />
+            </label>
+          )}
+          {refVal === "Other" && (
+            <label className="f-cond">Please specify
+              <input type="text" name="referral_other" />
+            </label>
+          )}
+          <label>Message<textarea name="message" rows={3} placeholder="Anything else you'd like us to know?" /></label>
+          {/* The native control is kept — it is what actually carries the file
+              on submit — but visually hidden, with the label's own box acting
+              as the button. Clicking anywhere in it opens the picker, because
+              the input is a descendant of the label. */}
+          <label className="f-file">Share Your Inspiration
+            <span className="f-file-box">
+              <span className="f-file-btn">Upload Inspo</span>
+              {/* The action is the gold; this stays quiet, and steps aside for
+                  the filename once something has actually been chosen. Kept
+                  short so the button and its caption hold one line on a phone
+                  rather than pushing the row wider. */}
+              <span className="f-file-name">{fileName || "pics, sketches, etc."}</span>
+            </span>
+            <input
+              type="file"
+              name="attachment"
+              accept="image/*"
+              onChange={(e) => setFileName(e.currentTarget.files?.[0]?.name ?? "")}
+            />
           </label>
-          <label>Message<textarea name="message" rows={4} placeholder="Tell us about the piece you have in mind…" required /></label>
-          <label className="f-file">Share an inspiration image <span className="f-hint">(optional)</span>
-            <input type="file" name="attachment" accept="image/*" />
-          </label>
-          <button type="submit" className="btn btn-gold" style={{ marginTop: "1.6rem" }}>Begin the Conversation</button>
+          <button type="submit" className="btn btn-gold">Start Your Story</button>
         </form>
       </section>
       <SiteFooter />

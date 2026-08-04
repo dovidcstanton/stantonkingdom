@@ -19,6 +19,23 @@
   --serif:'Cormorant Garamond',Georgia,serif;
   --sans:'Jost','Helvetica Neue',Arial,sans-serif;
 
+  /* ---- Embossed / debossed surfaces — see the shared block below ----
+     One definition, used by the Start Your Story pills and by the Before You
+     Ask control and its questions. Written once so the two cannot drift: same
+     offsets, same blurs, same alphas, same light direction — a source up and
+     to the left, so a raised surface is lit on its top-left lip and drops its
+     shadow down-right, and a pressed one takes the shading inside that same
+     top-left lip with the bounce returning from the lower-right.
+
+     Only the shadow's TONE is a variable. Each section passes its own ink
+     through --depth-shade, so a section keeps its own colour while sharing the
+     structure; nothing here carries a section's hue. Deliberately no large
+     light-coloured outer pass anywhere — on a cream ground that reads as an
+     artificial glow rather than as a lit edge. */
+  --depth-shade:122,103,76;
+  --emboss-edge:rgba(255,255,255,.42);
+  --emboss-ease:.2s ease;
+
   /* ---- Drawer palette ----
      Both panels — contact on the right, menu on the left — are built from these
      and nothing else. Three roles only: midnight navy carries structure and
@@ -56,8 +73,54 @@
     transparent 100%);
   --dr-ease:220ms ease;
   --dr-open:290ms;            /* expand/collapse, inside the 260–320ms band */
+
+  /* ---- Panel edge ----
+     Both drawers used to close their exposed side with a 1px gold rule at 40%,
+     which drew a hard line down the screen and read as a border around a panel
+     rather than as a panel lying over the page. What replaces it is only light:
+     a short, dense contact shadow right at the edge, a wide soft one falling
+     away from it, and a barely-there warm rim — a fourteenth of the old
+     alpha — just to keep the edge from dissolving into a dark background.
+     Declared once, and used by both panels with only the direction mirrored,
+     so the left and the right are provably the same treatment. */
+  --dr-edge-near:rgba(4,10,20,.26);
+  --dr-edge-far:rgba(4,10,20,.5);
+  --dr-edge-tint:rgba(217,187,127,.13);
 }
 *{margin:0;padding:0;box-sizing:border-box}
+/* The two shadow stacks, declared once for every surface that uses them.
+   They live here rather than in :root because each one calls var(--depth-shade)
+   INSIDE its own value: a custom property containing var() is resolved on the
+   element that declares it, so writing these in :root would bake in :root's
+   tone and #faq's override would never be read. Declared on the consumers
+   instead, each resolves against whichever --depth-shade is in scope — one set
+   of numbers, two sections, two inks. */
+.contact-opt,
+.faq-toggle::before,
+.faq-toggle-icon,
+.faq-item.open,
+.faq-q .fx,
+.f-file-btn{
+  --emboss-raised:
+    inset 1px 1px 0 rgba(255,255,255,.7),
+    inset -1px -1px 0 rgba(var(--depth-shade),.05),
+    1px 2px 3px rgba(var(--depth-shade),.11),
+    3px 6px 12px rgba(var(--depth-shade),.08);
+  /* The same shape lit the same way, dialled back — for marks that must read
+     as standing out without competing with the surface carrying them. Not a
+     second effect: identical offsets ratio and direction, lower alphas and a
+     shorter ambient pass. */
+  --emboss-raised-soft:
+    inset 1px 1px 0 rgba(255,255,255,.5),
+    inset -1px -1px 0 rgba(var(--depth-shade),.04),
+    1px 1.5px 2px rgba(var(--depth-shade),.09),
+    2px 3px 6px rgba(var(--depth-shade),.06);
+  --emboss-pressed:
+    inset 4px 4px 8px rgba(var(--depth-shade),.2),
+    inset -3px -3px 7px rgba(255,255,255,.55),
+    inset 0 0 0 1px rgba(var(--depth-shade),.05);
+  --emboss-edge-pressed:rgba(var(--depth-shade),.08);
+}
 html{scroll-behavior:smooth}
 body{
   background:var(--ivory);color:var(--ink);
@@ -165,8 +228,14 @@ header:not(.scrolled) .icon-btn:hover{color:var(--gold-bright)}
    in a 24 viewBox drawn at 18px is 2 x 18/24 = 1.5px, so a 2px CSS bar was
    heavier than every line beside it. */
 .burger{position:relative;width:var(--icon-size);height:var(--icon-size)}
+/* 16px, not 18. Three bars at 18 made the burger a third wider than the chat
+   bubble beside it and the widest mark in the row; 16 sets it against the bag
+   body and the lens. The 1.5px bar is unchanged — it already matches what the
+   svg icons render (a 2px stroke in a 24 box drawn at 18px is 1.5px of ink),
+   so the whole row is one line weight. --drawer-inset is measured from the
+   button box rather than from the bars, so it is unaffected. */
 .burger span{
-  position:absolute;left:50%;top:50%;display:block;width:18px;height:1.5px;
+  position:absolute;left:50%;top:50%;display:block;width:16px;height:1.5px;
   background:currentColor;border-radius:1px;transform-origin:50% 50%;
   transition:transform .28s ease-in-out,opacity .28s ease-in-out,background .4s;
 }
@@ -226,9 +295,21 @@ header.scrolled .brand-logo{filter:brightness(.5) saturate(1.3) contrast(1.15)}
 .search-box input::placeholder{color:var(--ink-mute);opacity:.7}
 .search-close{background:none;border:none;font-size:1.6rem;line-height:1;color:var(--ink-mute);cursor:pointer;padding:.2rem .4rem}
 .search-close:hover{color:var(--gold)}
+/* The resting state: one quiet line, no list. */
+.search-hint{
+  max-width:760px;margin:0 auto;padding:1.1rem 1.5rem 1.6rem;
+  font-family:var(--sans);font-weight:300;font-size:.82rem;letter-spacing:.04em;
+  color:var(--ink-mute);
+}
 .search-results{max-width:760px;margin:0 auto;padding:.8rem 1.5rem 1.8rem;max-height:60vh;overflow-y:auto}
+/* Editorial rows, not controls. Deliberately flat — no fill, no radius, no
+   depth — so search stays lighter than anything on the page that actually
+   commits the visitor to something. A button element for the keyboard; the
+   rule beneath is the only ornament. */
 .search-result{
-  display:block;padding:.7rem .4rem;border-bottom:1px solid var(--line);cursor:pointer;
+  display:block;width:100%;text-align:left;background:none;border:none;
+  font-family:inherit;
+  padding:.7rem .4rem;border-bottom:1px solid var(--line);cursor:pointer;
 }
 .search-result:last-child{border-bottom:none}
 .search-result:hover{background:rgba(174,140,76,.06)}
@@ -237,7 +318,10 @@ header.scrolled .brand-logo{filter:brightness(.5) saturate(1.3) contrast(1.15)}
 .search-result:hover .search-result-label{transform:scale(1.05)}
 .search-result-tag{display:block;font-family:var(--sans);font-size:.6rem;letter-spacing:.22em;
   text-transform:uppercase;color:var(--gold);margin-top:.15rem}
-.search-empty{color:var(--ink-mute);font-size:.88rem;padding:.7rem .4rem}
+.search-empty{color:var(--ink-mute);font-size:.88rem;padding:.7rem .4rem;line-height:1.7}
+.search-empty a{color:var(--gold);border-bottom:1px solid var(--gold-faint)}
+.search-empty a:hover{border-bottom-color:var(--gold)}
+.search-result:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
 /* ---- Navigation drawer (mirror of the contact drawer on the right) ---- */
 .nav-scrim{
   position:fixed;inset:0;background:rgba(4,10,20,.5);z-index:260;
@@ -255,7 +339,7 @@ header.scrolled .brand-logo{filter:brightness(.5) saturate(1.3) contrast(1.15)}
 @media(max-width:760px){ .nav-drawer{--drawer-inset:calc(1.5rem + 2.6px)} }
 .nav-drawer{
   position:fixed;top:0;left:0;height:100vh;height:100dvh;width:min(360px,88vw);z-index:270;
-  background:var(--dr-navy);border-right:1px solid rgba(217,187,127,.4);
+  background:var(--dr-navy);
   transform:translateX(-100%);transition:transform .45s cubic-bezier(.5,.05,.2,1);
   display:flex;flex-direction:column;overflow-y:auto;
   /* The edge the arrows fly out through, and the wall the sliding panels are
@@ -267,7 +351,13 @@ header.scrolled .brand-logo{filter:brightness(.5) saturate(1.3) contrast(1.15)}
    — translateX(-100%) moves the drawer's own box off-screen, but a positive
    x-offset shadow is painted relative to that box, so its blur reached right
    back across the viewport's left edge as a permanent hairline. */
-.nav-drawer.open{transform:none;box-shadow:24px 0 60px -30px rgba(0,0,0,.5)}
+.nav-drawer.open{
+  transform:none;
+  box-shadow:
+    3px 0 8px -1px var(--dr-edge-near),
+    24px 0 60px -30px var(--dr-edge-far),
+    inset -1px 0 0 var(--dr-edge-tint);
+}
 /* While a finger is on it the drawer is not animating, it is being held: the
    transition would fight the drag and lag a frame behind the touch. pan-y
    leaves vertical scrolling to the browser and reserves horizontal movement
@@ -307,10 +397,25 @@ header.scrolled .brand-logo{filter:brightness(.5) saturate(1.3) contrast(1.15)}
    panel goes full width (below), which puts the burger cleanly behind it rather
    than half-clipped by its edge. */
 header.contact-open .burger{z-index:250}
+/* Same story for search, and this one was visible at every width rather than
+   only on narrow phones. The search panel is z-index 250; the burger's 280
+   lift meant the menu control kept floating over the top of it, landing on the
+   search field itself — which read as the navigation panel still being there
+   behind the search. Menu and search are already mutually exclusive in state
+   (opening either closes the other); the drawer really is fully off-screen.
+   It was only ever this one control painting above the panel. It has no job
+   while search is up — the panel has its own x — so it stands down. */
+header.search-open .burger{z-index:249}
 body.contact-panel-open .cw{
   opacity:0;pointer-events:none;
   transition:opacity .3s ease;
 }
+/* The launcher deliberately does NOT stand down for the Start Your Story row.
+   It briefly did, to clear the Consult pill it overlaps between 761px and
+   ~1240px — but a Concierge that vanishes for a screen's worth of scrolling
+   costs more than the overlap it was avoiding. It is a persistent control and
+   it stays put to the foot of the page. The overlap is a known trade and is
+   noted on .contact-grid. */
 .nav-drawer-links{display:flex;flex-direction:column;padding:.6rem 0}
 .nav-drawer-links a,
 .nav-drawer-links > button{
@@ -605,7 +710,6 @@ body.contact-panel-open .cw{
   --cg-pad:1.6rem;
   position:fixed;top:0;right:0;height:100vh;width:min(360px,88vw);z-index:270;
   background:var(--dr-navy);
-  border-left:1px solid rgba(217,187,127,.4);
   transform:translateX(100%);transition:transform .45s cubic-bezier(.5,.05,.2,1);
   touch-action:pan-y;
   display:flex;flex-direction:column;
@@ -618,7 +722,15 @@ body.contact-panel-open .cw{
    drawer's own box off-screen, but a negative x-offset shadow is painted
    relative to that box, so its blur reached back across the viewport's
    right edge as a permanent hairline, on every breakpoint. */
-.contact-drawer.open{transform:translateX(0);box-shadow:-24px 0 60px -30px rgba(0,0,0,.5)}
+/* The same three passes as .nav-drawer.open, mirrored — identical offsets,
+   blurs and tones, only the x sign and the inset side reversed. */
+.contact-drawer.open{
+  transform:translateX(0);
+  box-shadow:
+    -3px 0 8px -1px var(--dr-edge-near),
+    -24px 0 60px -30px var(--dr-edge-far),
+    inset 1px 0 0 var(--dr-edge-tint);
+}
 .contact-drawer.dragging{transition:none}
 
 /* The heading area carries more vertical space than any single row, so the
@@ -1002,7 +1114,10 @@ body.contact-panel-open .cw{
   -webkit-mask-image:linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) calc(var(--l2,0) * 100%), rgba(0,0,0,0) 100%);
           mask-image:linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,1) calc(var(--l2,0) * 100%), rgba(0,0,0,0) 100%);
 }
-.hero-main.uni-h{font-size:clamp(2.3rem,4.6vw,4.1rem)!important}
+/* Declared as a variable so the CTA row below can be measured against the very
+   same value rather than against a copy of it that could drift. */
+.hero-inner{--hero-main-fs:clamp(2.3rem,4.6vw,4.1rem)}
+.hero-main.uni-h{font-size:var(--hero-main-fs)!important}
 .hero-main em{font-style:italic;color:var(--gold-bright)}
 .hero-sub{
   color:rgba(251,249,244,.85);max-width:46ch;margin:1.8rem auto 0;font-weight:200;font-size:.95rem;
@@ -1010,6 +1125,51 @@ body.contact-panel-open .cw{
 }
 .hero-actions{display:flex;flex-direction:row;gap:1rem;justify-content:flex-start;align-items:center;flex-wrap:wrap;margin-top:clamp(.5rem,1.4vw,.9rem)}
 .hero-actions .btn{width:auto;flex:0 0 auto;padding:.85rem 1.35rem;min-width:10.5rem;text-align:center;border-radius:14px 0 14px 0}
+/* ---- The CTA row is measured against the headline ----
+   "Ours begins with yours." is 9.08em wide in this face at any size — the
+   string and the font are fixed, so the ratio is too, which is why the row can
+   be tied to the headline's own font-size and stay aligned through the whole
+   clamp instead of matching at one width and drifting at every other.
+
+   The row is set at 9.72em against the headline's 9.08em, so the pair stands
+   ~3.3% proud of the line on each side and the headline sits just inside the
+   group's boundaries — visibly related, not visibly different. That is the
+   whole of the "slightly wider" relationship; nothing else here encodes it.
+
+   ≥761px only: on a phone the headline wraps and there is no single line to
+   align to, and the rule further down stretches the pair to the full column,
+   which matters more than an alignment that no longer exists. */
+@media(min-width:761px){
+  .hero-actions{width:100%;max-width:calc(9.72 * var(--hero-main-fs));gap:clamp(.75rem,1.6vw,1.45rem)}
+  /* ---- Equal halves, and the type sized to fit them ----
+     The row's width follows --hero-main-fs, which bottoms out at its 2.3rem
+     clamp floor from 761px down — but the labels were set at a fixed .64rem,
+     so below roughly 1040px "Discover the Kingdom" simply did not fit the half
+     it was given and broke onto a second line (both buttons ran two lines at
+     768x1024). The labels now ride down with the room instead: they hold the
+     approved .64rem/.3em from 1040px up, and taper to .55rem/.194em by 768px,
+     where the longer label clears its half by ~8px. Padding is inline-only and
+     tapers with them — with both buttons flex-sized to the same width it is
+     the type that has to fit, not the box that has to grow.
+     nowrap is the guarantee: if any of this is ever loosened the label runs
+     wide rather than silently wrapping again. */
+  .hero-actions .btn{
+    flex:1 1 0;min-width:0;white-space:nowrap;
+    padding-inline:clamp(.5rem,1.5vw,1.35rem);
+    font-size:clamp(.55rem,calc(-0.457px + 1.0286vw),.64rem);
+    letter-spacing:clamp(1.936px,calc(-5.367px + .8114vw),3.072px);
+  }
+}
+/* 50/50, at every width. These two carried a 4:5 split, which was how the
+   longer label was kept from clipping back when it was set at one fixed size
+   in a row that could not grow — the row paid for the label. Now the label is
+   sized to the half it is given (above, and in the mobile block), so the split
+   is no longer load-bearing and the pair can be the symmetrical thing it was
+   meant to be. Kept as an explicit 1/1 rather than deleted so that neither
+   `flex` shorthand below can reintroduce an imbalance by accident.
+   Scoped through .hero-inner to outrank both of them. */
+.hero-inner .hero-actions .hero-btn-1,
+.hero-inner .hero-actions .hero-btn-2{flex-grow:1}
 .hero-btn-1{opacity:var(--b1,0);transform:translateY(calc((1 - var(--b1,0)) * 16px));pointer-events:none}
 .hero-btn-2{opacity:var(--b2,0);transform:translateY(calc((1 - var(--b2,0)) * 16px));pointer-events:none}
 .hero.hero-btn1-ready .hero-btn-1{pointer-events:auto}
@@ -1273,7 +1433,19 @@ body.contact-panel-open .cw{
 .collection-h2{color:var(--navy);font-weight:700}
 .collection-h2.uni-h{white-space:nowrap;letter-spacing:-.005em}
 .collection-em{font-style:italic;color:var(--gold)}
-.collection-sub{color:var(--ink-mute)!important;font-weight:200!important;font-size:.88rem!important;letter-spacing:.06em}
+/* Sized to hold one line, not to hold .88rem. The sentence is 33.7em wide in
+   this face at any size, so the size at which it fits is a pure function of the
+   column — the clamp simply follows it down: .88rem wherever the column is wide
+   enough (542px up, which is every tablet and desktop and the wider phones),
+   then tapering with the viewport so 430, 414, 390, 375 and 360 all still carry
+   it on a single line. The floor is where legibility stops the taper; at 320
+   the line breaks instead, at the one point the spans allow.
+   Family, weight and colour are untouched — only the measure. */
+.collection-sub{
+  color:var(--ink-mute)!important;font-weight:200!important;
+  font-size:clamp(.55rem,2.5vw,.88rem)!important;letter-spacing:.06em;
+}
+.collection-sub span{white-space:nowrap}
 
 .sec-band h2 em{font-style:italic;color:var(--gold)}
 .sec-band p{color:var(--ink-soft);font-weight:200;margin:1.3rem auto 0;font-size:.94rem;max-width:60ch}
@@ -1613,8 +1785,13 @@ body.contact-panel-open .cw{
    laid over the top — so all that survives of the rim is the 2px that peeks
    out above and below. Hard-edged, therefore sharp; gradient along its
    length, therefore free to reverse and to vanish in the middle. */
-.faq-toggle::before,
-.faq-toggle::after{
+/* Rebuilt from nothing. The previous construction was a two-element rocker:
+   ::before painted the pill and ::after painted a 1px gradient rim behind it
+   whose lighting reversed along its length. That rim is gone entirely — it was
+   its own depth system, and leaving it under the new shadows was the reason
+   this control never matched the Start Your Story pills. ::after is not drawn
+   at all now, and ::before carries the whole effect on its own. */
+.faq-toggle::before{
   content:'';position:absolute;pointer-events:none;border-radius:999px;
 }
 /* The pill: the page's own colour, hiding all of the rim but its edges — and
@@ -1625,82 +1802,31 @@ body.contact-panel-open .cw{
    than as a pill. A hairline border traces the full outline — both caps
    included — at an alpha low enough to stay a suggestion rather than become a
    drawn box around the heading. */
+/* The surface, and now the only thing carrying depth at this end. Shadows and
+   edge come straight from --emboss-raised / --emboss-pressed, the same pair
+   the Start Your Story pills use — same offsets, blurs, alphas and light
+   direction. Only the tone differs, via --depth-shade on #faq below, so this
+   keeps the section's own ink. Fill stays var(--faq-bg): the page's own
+   colour, so the pill is the surface deformed rather than a panel laid on it,
+   exactly as it was before. */
 .faq-toggle::before{
   top:-1px;bottom:-1px;
   left:calc(var(--pill-lead) * -1);right:calc(var(--pill-lead) * -1);
   background:var(--faq-bg);
-  border:1px solid rgba(64,50,30,.13);
+  border:1px solid var(--emboss-edge);
   z-index:1;
+  box-shadow:var(--emboss-raised);
+  transition:box-shadow var(--emboss-ease),border-color var(--emboss-ease);
 }
-/* The rim, inflated 2px so exactly that much shows around the pill.
-
-   Each gradient fills a whole HALF of this element — not a 2px strip pinned to
-   its top and bottom edges, which is what threw the rim out of true. A strip
-   is a rectangle: it runs dead straight while the pill beneath it curves away
-   into its caps, so at the two ends the line drifted off the fill's outline
-   and the shading stopped agreeing with the shape it was meant to describe.
-   Filling the halves instead means the visible rim is simply the gap between
-   two concentric pills — and a stadium grown outward by 2px is still a
-   stadium, so that gap is exactly 2px wide the whole way round, caps
-   included. The rim now follows the outline by construction rather than by
-   coincidence, and only the top half of the ring can take the top colour.
-
-   Lit from straight overhead, with no sideways offset anywhere: EMBOSSED
-   reads light along the top of the ring and dark along the bottom, DEBOSSED
-   is the same two swapped, and between them both run to nothing. */
-.faq-toggle::after{
-  /* 1px proud of the pill, not 2px. The two shapes were provably concentric —
-     radii exactly 2 apart, cap centres identical — so the ring was uniform all
-     the way round and the geometry was never wrong. But a 2px ring sitting
-     outside a 1px hairline draws TWO curves a couple of pixels apart, and at
-     the caps, where the eye can see both arcs at once, that reads as the
-     shading having come loose from the outline. Closing it to 1px puts the
-     shading immediately against the hairline so the pair reads as one edge. */
-  top:-2px;bottom:-2px;
-  left:calc(var(--pill-lead) * -1 - 1px);right:calc(var(--pill-lead) * -1 - 1px);
-  z-index:0;
-  /* The two halves meet at the element's vertical middle, and that is exactly
-     where the rim is wrapping around the cap ends — so a hard join there made
-     the line terminate dead at each cap instead of running out of it. This
-     fades both halves away before they reach that middle, so each rim tapers
-     off as it curves around the cap rather than stopping against the other.
-     Safe to mask here because this element carries only a background: there is
-     no outer shadow for a mask to shear away. */
-  -webkit-mask-image:linear-gradient(to bottom,#000 0 30%,rgba(0,0,0,0) 50%,#000 70% 100%);
-  mask-image:linear-gradient(to bottom,#000 0 30%,rgba(0,0,0,0) 50%,#000 70% 100%);
-  background:
-    linear-gradient(to right,
-      rgba(255,255,255,1) 0%,
-      rgba(255,255,255,.92) 20%,
-      rgba(255,255,255,0) 46%,
-      rgba(64,50,30,0) 54%,
-      rgba(64,50,30,.34) 80%,
-      rgba(64,50,30,.42) 100%) top/100% 50% no-repeat,
-    linear-gradient(to right,
-      rgba(64,50,30,.42) 0%,
-      rgba(64,50,30,.34) 20%,
-      rgba(64,50,30,0) 46%,
-      rgba(255,255,255,0) 54%,
-      rgba(255,255,255,.92) 80%,
-      rgba(255,255,255,1) 100%) bottom/100% 50% no-repeat;
+/* Pressed in — on hover, and held there for as long as the panel is open,
+   the way a latching control stays down until it is released. */
+.faq-toggle:hover::before,
+.faq-toggle[aria-expanded="true"]::before{
+  border-color:var(--emboss-edge-pressed);
+  box-shadow:var(--emboss-pressed);
 }
-/* Thrown: both halves simply run the other way. */
-.faq-toggle[aria-expanded="true"]::after{
-  background:
-    linear-gradient(to left,
-      rgba(255,255,255,1) 0%,
-      rgba(255,255,255,.92) 20%,
-      rgba(255,255,255,0) 46%,
-      rgba(64,50,30,0) 54%,
-      rgba(64,50,30,.34) 80%,
-      rgba(64,50,30,.42) 100%) top/100% 50% no-repeat,
-    linear-gradient(to left,
-      rgba(64,50,30,.42) 0%,
-      rgba(64,50,30,.34) 20%,
-      rgba(64,50,30,0) 46%,
-      rgba(255,255,255,0) 54%,
-      rgba(255,255,255,.92) 80%,
-      rgba(255,255,255,1) 100%) bottom/100% 50% no-repeat;
+@media(prefers-reduced-motion:reduce){
+  .faq-toggle::before{transition-duration:.01ms}
 }
 .faq-toggle-txt{
   position:relative;z-index:2;
@@ -1722,19 +1848,32 @@ body.contact-panel-open .cw{
    edge, matching their EDGES leaves their centres half the size difference
    apart — which is exactly the misalignment that showed. The small mark is
    inset by that half-difference so the centres, not the edges, agree. */
-#faq{--faq-icon-box:44px;--faq-fx-box:28px}
-/* A mark printed on the paddle, NOT a button of its own. It carries no fill
-   and no shadow: the depth at this end belongs to the pill half beneath it,
-   and giving the circle its own raised or sunken treatment on top of that read
-   as a second button sitting on the first. The ring is kept, very faint, only
-   so the mark has a defined edge against the surface it is printed on. */
+/* The section's own ink, substituted into the shared emboss recipe. This one
+   declaration is the whole of the colour difference between this control and
+   the Start Your Story pills — everything else about the depth is identical by
+   construction rather than by being re-typed. */
+#faq{--faq-icon-box:44px;--faq-fx-box:28px;--depth-shade:64,50,30}
+/* The mark stands out in EVERY state — closed, hovered and open — so that the
+   only thing that ever moves at this end is the surface underneath it. Closed
+   the two agree (surface out, mark out) and the control reads as one object;
+   open, the surface drops away and leaves the mark above it. Carried at the
+   restrained weight so a 44px circle does not out-shout the heading beside it,
+   and filled with the section's own colour so it is the surface lifted rather
+   than a separate button laid on top. */
 .faq-toggle-icon{
   position:relative;z-index:2;top:var(--icon-nudge,0px);font-size:0;color:var(--navy);
   flex-shrink:0;width:var(--faq-icon-box);height:var(--faq-icon-box);
-  border:1px solid rgba(11,23,48,.16);border-radius:50%;
-  background:none;
+  border:1px solid var(--emboss-edge);border-radius:50%;
+  background:var(--faq-bg);
+  box-shadow:var(--emboss-raised-soft);
   display:flex;align-items:center;justify-content:center;
-  transition:transform .35s cubic-bezier(.4,0,.2,1),border-color .34s ease;
+  transition:transform .35s cubic-bezier(.4,0,.2,1),border-color var(--emboss-ease),box-shadow var(--emboss-ease);
+}
+/* Once the surface has sunk, the mark is given its full weight — the gap
+   between the two levels is what sells the recess. */
+.faq-toggle:hover .faq-toggle-icon,
+.faq-toggle[aria-expanded="true"] .faq-toggle-icon{
+  box-shadow:var(--emboss-raised);
 }
 .faq-toggle-icon::before,.faq-toggle-icon::after{
   content:"";position:absolute;top:50%;left:50%;background:currentColor;
@@ -1758,16 +1897,39 @@ body.contact-panel-open .cw{
    words stay a comfortable length. */
 .faq-list{max-width:none;margin:0}
 .faq-item{border-bottom:1px solid var(--line)}
+/* A shallow recess carved into the page, and ONLY while this question is open.
+   Inset shading exclusively — no exterior pass at all, because anything cast
+   outward would make it a card lying on the page, which is the opposite of a
+   hollow cut into it. A small radius rather than a capsule: a pill would read
+   as another button in a section that already has two. The vertical margin is
+   the breathing room that separates the open question from its neighbours; it
+   is not transitioned, so it does not fight the answer's own height animation.
+   Horizontal padding is deliberately untouched, so the question text does not
+   shift sideways as it opens. */
+.faq-item.open{
+  border-radius:6px;
+  margin:.85rem 0;
+  box-shadow:var(--emboss-pressed);
+}
+/* The rows themselves stay flat — no surface, no shadow, no shape, in any
+   state. Ten questions each carrying their own raised panel turned a quiet
+   list into a stack of bars; the depth at this level belongs to the mark
+   alone, and to the recess that appears only on the open one. Hover remains
+   what it always was: the text goes gold, and nothing moves. */
+/* .9rem rather than .2rem across: with the open question sitting in a recess,
+   the words were running very close to its left and right walls. */
 .faq-q{
   position:relative;
   width:100%;background:none;border:none;cursor:pointer;color:var(--ink);
   font-family:var(--serif);font-size:1.25rem;font-weight:400;text-align:left;
-  padding:1.6rem .2rem;display:flex;align-items:center;gap:1.4rem;transition:color .3s,background .3s;
+  padding:1.6rem .9rem;display:flex;align-items:center;gap:1.4rem;
+  transition:color .3s;
 }
-/* Nothing is drawn across the row itself. Shading a whole line made a list of
-   ten questions into ten shaded bands, which is a lot of surface moving for
-   what is really one small control changing state — so the depth lives on the
-   mark alone now. See .faq-q .fx below. */
+/* Gold for as long as the answer is showing, not just under the cursor. */
+.faq-item.open .faq-q{color:var(--gold)}
+@media(prefers-reduced-motion:reduce){
+  .faq-item.open{transition-duration:.01ms}
+}
 /* Lifted above the wash. Without this the fill would paint over both. */
 .faq-txt{position:relative;z-index:1;flex:1;max-width:62ch}
 .faq-q .fx{z-index:1}
@@ -1777,27 +1939,17 @@ body.contact-panel-open .cw{
    and the glyph's own optical centre both push it off, which is the tilt that
    was showing up. Two absolutely-centred bars have no such offset, and
    rotating the container turns the + into a × that stays exactly centred. */
-/* EMBOSSED at rest — a small disc standing proud of the page, which is what
-   says it can be pressed. Same rule as the rocker: lit from straight
-   overhead, so the light sits on its top edge and its shadow falls beneath
-   it, with no sideways offset. Filled with the page's own colour so the disc
-   is the surface itself lifted, not a token laid on top of it. */
+/* RAISED, and the only thing in the row that has any depth at all. Restrained
+   weight at rest so a 28px disc reads as a quiet affordance rather than as a
+   button pinned to the end of every line — the same recipe as the big mark
+   above, so the two read as one family. */
 .faq-q .fx{
   position:relative;z-index:1;font-size:0;color:var(--navy);
-  transition:transform .35s,background .3s,border-color .3s,color .3s,box-shadow .3s;
+  transition:transform .35s,background .3s,border-color var(--emboss-ease),color .3s,box-shadow var(--emboss-ease);
   flex-shrink:0;width:var(--faq-fx-box);height:var(--faq-fx-box);
   background:var(--faq-bg);
-  /* Blur pulled in to 1px against a 1px offset — the Philosophy heading's own
-     ratio. At 2px the edge went hazy and the disc read as hovering in a soft
-     glow rather than sitting on the page; a shorter, harder shadow is what
-     makes a small object look crisply lifted. The alphas come up slightly to
-     hold the same weight now that the shadow has less room to spread. */
-  box-shadow:
-    0 -1px 0 rgba(255,255,255,1),
-    0 1px 1px rgba(64,50,30,.34);
-  /* The same faint ring the rocker's own mark carries, so the two read as one
-     family rather than as a bold mark above a fainter one. */
-  border:1px solid rgba(11,23,48,.16);border-radius:50%;
+  box-shadow:var(--emboss-raised-soft);
+  border:1px solid var(--emboss-edge);border-radius:50%;
   display:flex;align-items:center;justify-content:center;
   /* Driven to the row's right edge regardless of how short the question is,
      then inset by half the size difference so its centre — not its edge —
@@ -1816,26 +1968,40 @@ body.contact-panel-open .cw{
    than with the turn of the mark. The bars thicken because at 1px a bar
    rotated 45deg is never pixel-aligned and antialiases toward grey; 1.5px
    holds its weight through the rotation. */
-/* DEBOSSED once open — pressed in. The light inverts exactly: the shadow
-   moves inside the top lip and the bounce catches the inner bottom, and the
-   cast shadow beneath goes entirely, because something lying in a hollow has
-   nothing to cast onto. */
+/* RAISED whenever the row is pressed — on hover, and held there while the
+   answer is open. The light inverts exactly: it moves onto the top edge and
+   the disc casts beneath itself again, so as the surface goes down the mark
+   comes up. */
+/* The one thing that answers a hover — the mark comes up a little further,
+   while the row around it stays exactly as flat as it was. Open, it holds
+   that fuller weight, standing above the recess it now sits in. */
+.faq-q:hover .fx,
+.faq-item.open .fx{
+  box-shadow:var(--emboss-raised);
+}
 .faq-item.open .fx{
   transform:rotate(45deg);
-  box-shadow:
-    inset 0 1.5px 1px rgba(64,50,30,.36),
-    inset 0 -1px 0 rgba(255,255,255,1);
 }
 .faq-item.open .fx::before{height:1.5px}
 .faq-item.open .fx::after{width:1.5px}
 .faq-a{max-height:0;overflow:hidden;transition:max-height .45s ease}
-.faq-a p{font-size:.9rem;color:var(--ink-soft);font-weight:200;padding:0 .2rem;max-width:62ch;margin-bottom:.9rem}
+.faq-a p{font-size:.9rem;color:var(--ink-soft);font-weight:200;padding:0 .9rem;max-width:62ch;margin-bottom:.9rem}
 .faq-a p:last-child{margin-bottom:0;padding-bottom:1.8rem}
 .faq-a p:first-child{color:var(--ink);font-weight:400}
 
 /* ================ EXPERIENCE / CTA ================ */
+/* The block is centred between the padding edges, so the padding is what tips
+   it off centre: a shallow head and a deep foot lift the whole composition up
+   the panel. It was 6 over 7 — near enough symmetrical that the heading landed
+   below the optical centre with a large dead band above it and only a short
+   step down to the controls, which read as a heading stuck to its buttons
+   rather than one introducing a section. Both figures are vh-scaled so a tall
+   desktop and a short laptop get the same proportion rather than the same
+   pixels. */
 #begin{
-  color:var(--ink);text-align:center;padding:8.5rem 6vw 7rem;position:relative;z-index:1;overflow:hidden;
+  color:var(--ink);text-align:center;
+  padding:clamp(3rem,5vh,4.5rem) 6vw clamp(7rem,19vh,14rem);
+  position:relative;z-index:1;overflow:hidden;
   /* Always fill at least the full screen — otherwise, since the footer sits
      sticky-pinned right after it, jumping straight here via the Start Your
      Story button could show a sliver of footer immediately instead of only
@@ -1859,44 +2025,108 @@ footer{position:sticky;bottom:0;z-index:0}
 #begin .eyebrow{color:var(--gold)}
 #begin h2.begin-h{font-family:var(--serif);font-weight:700;line-height:1.22;letter-spacing:.005em;max-width:22ch;margin:1rem auto 0;color:var(--navy);text-align:center}
 #begin h2 em{display:inline-block;font-family:inherit;font-style:italic;font-weight:inherit;color:var(--gold)}
-.contact-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0;max-width:820px;margin:3.5rem auto 0}
+/* One horizontal row of three equal capsules — Chat | Call | Consult. Each is
+   a single element: icon, text and chevron all sit directly inside the same
+   pill, so the whole capsule is the target and there is no button inside a
+   button. The row stacks only on mobile (≤760px, further down). */
+/* The step down from the heading to the controls, scaled with the viewport so
+   the separation holds its proportion instead of being one fixed gap that
+   reads generous on a laptop and mean on a tall desktop. Wider than it was:
+   the heading needs to sit clear of the row it introduces. */
+.contact-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:1.1rem;align-items:stretch;
+  width:100%;max-width:1080px;margin:clamp(3.75rem,7.5vh,6rem) auto 0;
+}
+/* Embossed by default. The depth is deliberately quiet: a hairline highlight
+   along the top-left lip, a short contact shadow just under the lower-right
+   edge, and one wider, very faint ambient pass. No white halo — a large
+   light-coloured outer shadow reads as an artificial glow on a cream ground
+   rather than as a lit edge — and no deep drop shadow, which would make the
+   pill look like a card floating over the page instead of a shape raised out
+   of it. */
 .contact-opt{
   position:relative;
-  display:flex;flex-direction:column;align-items:center;text-align:center;
-  padding:2.8rem 1.6rem;background:none;border:none;cursor:pointer;
-  transition:background .4s;
+  display:flex;flex-direction:row;align-items:center;text-align:left;
+  gap:1rem;width:100%;min-height:92px;
+  padding:1.25rem 1.5rem;cursor:pointer;
+  border:1px solid var(--emboss-edge);
+  border-radius:999px;
+  background:linear-gradient(150deg,#fbf6ea 0%,#f4eddd 100%);
+  box-shadow:var(--emboss-raised);
+  transition:box-shadow var(--emboss-ease),background var(--emboss-ease),border-color var(--emboss-ease);
   font-family:inherit;color:inherit;
+  -webkit-tap-highlight-color:transparent;
 }
-.contact-opt + .contact-opt::before{
-  content:'';position:absolute;left:0;top:0;height:100%;width:1px;
-  background:rgba(255,255,255,.85);pointer-events:none;
+/* Debossed on hover: the lighting inverts. Shading moves inside and lands
+   upper-left, a faint return highlight sits lower-right, and the exterior
+   raised pair is dropped entirely. The capsule itself does not move or
+   scale — the illusion is all light, which is what keeps it from reading as
+   a generic press animation. */
+@media(hover:hover) and (pointer:fine){
+  .contact-opt:hover{
+    background:linear-gradient(150deg,#f1eada 0%,#f7f1e3 100%);
+    border-color:var(--emboss-edge-pressed);
+    box-shadow:var(--emboss-pressed);
+  }
 }
-/* Hover changes one thing: the label goes gold. Previously the icon went gold
-   to navy while the label went navy to gold — two elements crossing in opposite
-   directions, plus a lift and a background wash. Three simultaneous moves in a
-   row of three cards is what made it feel unsettled. The icons simply stay
-   gold throughout. */
-/* background-color is in the list for Call's sake: its glyph is a mask on a
+/* Touch has no hover, so the same pressed-in look is the active state. */
+.contact-opt:active{
+  background:linear-gradient(150deg,#f1eada 0%,#f7f1e3 100%);
+  border-color:var(--emboss-edge-pressed);
+  box-shadow:var(--emboss-pressed);
+}
+.contact-opt:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+@media(prefers-reduced-motion:reduce){
+  .contact-opt{transition-duration:.01ms}
+}
+/* Title over subtitle, the pair centred as one group against the icon. The
+   left margin is on the text rather than in the flex gap so it only opens up
+   the icon-to-text space, and does not also push the chevron around. */
+.cc-text{display:flex;flex-direction:column;align-items:flex-start;gap:.24rem;min-width:0;flex:1;margin-left:.8rem}
+.cc-chev{
+  width:16px;height:16px;flex:none;margin-left:auto;
+  color:var(--gold);opacity:.5;transition:opacity .2s ease;
+}
+.contact-opt:hover .cc-chev{opacity:.85}
+/* Three across leaves no room for it beside two lines of text; the chevron
+   returns in the stacked mobile layout, where there is width to spare. */
+@media(max-width:1180px){
+  .cc-chev{display:none}
+}
+/* Two levels of depth. The pill presses INTO the page on hover; the icon does
+   the opposite and stays standing above it. At rest the glyph is solid gold
+   with a short contact shadow to the lower-right — the same light direction
+   the pill's own emboss uses, so the two agree.
+   background-color is transitioned for Call's sake: its glyph is a mask on a
    span tinted by `background-color:currentColor`, not an svg filled by
-   `color`. Without it the other two faded and Call snapped. */
-.cc-icon{width:26px;height:26px;color:var(--gold);margin:0 0 1.3rem;display:block;transition:color .3s,background-color .3s,filter .3s}
-/* White on the panel's own cream ground reads as nearly invisible on its own,
-   so a cast shadow sits beneath the glyph on hover — enough to trace its
-   silhouette against the light background. It is a straight-down, bird's-eye
-   shadow: the light is directly overhead rather than raking in from one side,
-   so BOTH passes are offset (0,0) — no x or y shift at all — and only the
-   blur radius differs between them. A sideways offset is what a shadow gets
-   from an angled source; a source pointed straight down casts symmetrically
-   in every direction, which is why any lateral nudge here would read as light
-   coming from the side rather than from above. The colour is a warm taupe — a
-   dimmed, desaturated version of the panel's own ink, the way a real shadow
-   is a dark tint of the surface it falls on, not an imported colour. The
-   tighter pass is the contact shadow right at the glyph's edge; the wider,
-   fainter pass is the soft ambient falloff a few millimetres out. */
+   `color`. Without it the other two would fade and Call would snap. */
+.cc-icon{
+  width:26px;height:26px;flex:none;color:var(--gold);margin:0;display:block;
+  filter:drop-shadow(1px 1px .5px rgba(122,103,76,.35));
+  transition:color .2s ease,background-color .2s ease,filter .2s ease;
+}
+/* Hovered: white, and now clearly proud of the sunken surface. The first pass
+   is the tight contact shadow that sits right at the glyph's lower-right edge
+   — the thing that actually reads as "standing above" — the second is the
+   softer ambient falloff a few millimetres out, and the third is the light
+   catching the upper-left lip. Warm taupe rather than grey: a real shadow is
+   a dark tint of the surface it falls on. Without this the white glyph would
+   be nearly invisible against ivory. */
 .contact-opt:hover .cc-icon{
   color:#fff;
-  filter:drop-shadow(0 0 3px rgba(90,74,58,.4)) drop-shadow(0 0 10px rgba(90,74,58,.24));
+  filter:
+    drop-shadow(1.5px 1.5px 1px rgba(90,74,58,.55))
+    drop-shadow(3px 4px 6px rgba(90,74,58,.3))
+    drop-shadow(-.5px -.5px .5px rgba(255,255,255,.75));
 }
+@media(prefers-reduced-motion:reduce){
+  .cc-icon{transition-duration:.01ms}
+}
+/* Optical, not metric. WhatsApp's mark is a solid disc that fills its whole
+   box, so at an identical pixel size it reads heavier than the phone and the
+   calendar, both of which carry internal gaps. Trimming it a few percent is
+   what makes the three look the same size. */
+.cc-icon-wa{width:24px;height:24px}
 /* Call reuses the header's phone glyph (mask-image) instead of an inline
    SVG, for visual consistency between the two. Its source silhouette is
    wider than tall (~1.2:1); widen the box so it reads at the same visual
@@ -1907,117 +2137,418 @@ footer{position:sticky;bottom:0;z-index:0}
    tracks the same transition the svg icons get through `color`. */
 .cc-mask-glyph{
   display:block;width:100%;height:100%;background-color:currentColor;
-  transition:background-color .3s;
+  transition:background-color .2s ease;
   -webkit-mask-position:center;mask-position:center;
   -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
   -webkit-mask-size:contain;mask-size:contain;
 }
+/* The drawn-in white rule that used to sit under the label is gone: the pill
+   pressing into the page IS the hover event now, and a second animated mark
+   inside it read as two things happening at once. */
 .cc-label{
   position:relative;
-  font-family:var(--serif);font-weight:500;font-size:1.5rem;color:var(--navy);line-height:1;
-  padding-bottom:.35rem;transition:color .3s;
-}
-/* A rule draws in from the centre on hover — the same gesture .discover uses
-   elsewhere on the site. The icons are already gold at rest, so a colour change
-   alone left the card merely matching itself; this gives the hover a direction
-   and a beginning, which colour cannot. */
-/* Draws left to right, and erases left to right too. The origin swap is what
-   makes the second half work: scaling from the LEFT on the way in grows the
-   rule rightward, and returning the origin to the RIGHT on the way out makes
-   the left end travel right to meet it. Animating width alone would draw in
-   correctly but retreat back the way it came, which reads as a rewind rather
-   than as an erase. */
-.cc-label::after{
-  /* 2px rather than a hairline: white on ivory is a very low-contrast pair,
-     and the extra weight is what lets the line register at all without
-     resorting to a glow. */
-  content:'';position:absolute;left:0;right:0;bottom:0;height:2px;
-  background:#fff;
-  transform:scaleX(0);transform-origin:right center;
-  transition:transform .42s cubic-bezier(.5,.05,.2,1);
+  font-family:var(--serif);font-weight:500;font-size:1.5rem;color:var(--navy);
+  line-height:1.05;white-space:nowrap;transition:color .21s ease;
 }
 .contact-opt:hover .cc-label{color:var(--gold)}
-.contact-opt:hover .cc-label::after,
-.contact-opt:focus-visible .cc-label::after{transform:scaleX(1);transform-origin:left center}
-@media(prefers-reduced-motion:reduce){
-  .cc-label::after{transition-duration:.01ms}
-}
 .cc-sub{
   font-size:.78rem;color:var(--ink-mute);font-weight:300;
-  margin-top:.85rem;max-width:24ch;line-height:1.5;transition:color .3s;
+  line-height:1.5;transition:color .21s ease;
 }
 .contact-opt:hover .cc-sub{color:var(--ink)}
-#meetBtn[aria-expanded="true"]{background:rgba(174,140,76,.1)}
+/* Consult holds the pressed-in state for as long as the form below is open —
+   the pill stays visibly depressed, the way a latching physical control does. */
+#meetBtn[aria-expanded="true"]{
+  background:linear-gradient(150deg,#f1eada 0%,#f7f1e3 100%);
+  border-color:var(--emboss-edge-pressed);
+  box-shadow:var(--emboss-pressed);
+}
 #meetBtn[aria-expanded="true"] .cc-label{color:var(--gold)}
-/* Open keeps the icon at its HOVER treatment — white with the same cast
-   shadow — rather than flipping to navy. Navy made the calendar glyph read as
-   a stray blue mark next to two gold ones, and on a phone the open state is
-   the state you look at longest: the tap lands, the form opens, and the card
-   stays that way. White plus the shadow is what the other two cards do under
-   the finger, so the row stays one vocabulary. */
+/* …and the icon holds its hovered relief, so the two levels stay consistent
+   while the form is open. On a phone this is the state you look at longest. */
 #meetBtn[aria-expanded="true"] .cc-icon{
   color:#fff;
-  filter:drop-shadow(0 0 3px rgba(90,74,58,.4)) drop-shadow(0 0 10px rgba(90,74,58,.24));
+  filter:
+    drop-shadow(1.5px 1.5px 1px rgba(90,74,58,.55))
+    drop-shadow(3px 4px 6px rgba(90,74,58,.3))
+    drop-shadow(-.5px -.5px .5px rgba(255,255,255,.75));
 }
 
 .acq-form[hidden]{display:none}
-/* Underneath (horizontal) dividers on tablet and mobile — vertical side
-   lines are a desktop-only treatment. */
+/* Tablet keeps the three-across row. #begin gives up its own side padding at
+   this width (it normally relies on an inner .wrap, which this grid does not
+   use), so the grid takes the site's 5vw gutter itself. */
 @media(max-width:1020px){
-  .contact-grid{grid-template-columns:1fr}
-  .contact-opt{padding:2.2rem 1.6rem}
-  .contact-opt + .contact-opt::before{left:12.5%;right:12.5%;top:0;width:75%;height:1px;background:rgba(255,255,255,.85)}
+  .contact-grid{padding:0 5vw;gap:.75rem}
+  /* ---- Consult's caption, and why these two values move together ----
+     Three pills share one row and one height, so the moment one caption needs
+     a second line its label lifts and the row stops reading as a set. At
+     tablet portrait that is exactly what happened: "Discuss in person or
+     virtually." is half again as long as the other two and wanted 152px of a
+     131px column at 768, so Consult ran to two lines and sat ~9px higher than
+     Chat and Call beside it. It came back to one line by ~840px on its own,
+     which is why it only ever showed on portrait tablets.
+     The column is widened and the caption narrowed at the same time, each
+     doing about half the work, because either alone had to be pushed far
+     enough to be seen: the side padding tapers with the viewport rather than
+     holding 1.15rem all the way down, and the caption tapers with it. Both
+     return to their full values by ~900px, above which there was never a
+     problem to solve. The label, the icon and the pill's height are untouched. */
+  .contact-opt{padding:1.15rem clamp(.7rem,1.9vw,1.15rem);gap:.75rem;min-height:88px}
+  .cc-label{font-size:1.25rem}
+  .cc-sub{font-size:clamp(.63rem,calc(1.2px + 1.15vw),.74rem)}
+  .cc-icon{width:23px;height:23px}
+  .cc-icon-wa{width:21px;height:21px}
+  .cc-icon-mask{width:27px}
 }
 
-.acq-form{max-width:760px;margin:3.5rem auto 0;text-align:left}
+/* min-width:0 all the way down. A text input carries an intrinsic minimum
+   width of roughly twenty characters, and #begin lays its children out as
+   flex items, whose min-width defaults to auto — so on a 320px handset the
+   two-up rows refused to shrink and pushed the whole form wider than the
+   screen. Releasing that floor is what lets First/Last stay paired at every
+   width instead of having to drop to one column. */
+/* width:100% is load-bearing, not decoration. #begin lays its children out as
+   a flex column, and this form's auto side margins opt it out of stretching,
+   leaving it to size itself from its own content — which on a 320px handset
+   came out 45px wider than the screen and quietly clipped the Last Name and
+   Contact Number fields. Stating the width pins it to the section instead. */
+/* The gutter is carried by the form, and the cap grows to pay for it.
+   max-width:760 with no padding meant that from about 761px to 800px — which
+   is 768x1024 and 820x1180 portrait, dead centre of the tablet range — the
+   form was already at its widest and simply ran out to both screen edges: the
+   fields, and that full-width gold submit, touched the glass while every other
+   section on the page stood inside a 5vw gutter. It read as a desktop form
+   squeezed rather than a tablet form drawn. Below 761 the mobile block gives
+   it 1.5rem, and above ~800 the viewport is wide enough that nothing showed,
+   which is why it only ever appeared on portrait tablets.
+   Adding 5vw of padding and 10vw of cap leaves the measure at 760px on every
+   width that could already afford 760px — desktop is pixel-identical — and on
+   the tablets it hands the form the same gutter its neighbours use. */
+.acq-form{
+  width:100%;max-width:calc(760px + 10vw);min-width:0;padding:0 5vw;
+  margin:3rem auto 0;text-align:left;
+}
+/* Each caption and the control under it are one unit, and the spacing says so:
+   a short drop from the caption to its own field, then a wider one before the
+   next unit starts. Set the other way round, every caption read as floating
+   between the row above it and the field it names.
+   The indent is the horizontal half of the same idea. A caption starting at
+   the control's extreme left edge sits above the corner radius, where there is
+   no straight edge to line up with; .7rem clears the 9px curve and lands the
+   text on the flat run of the field below. text-indent rather than padding,
+   because the label wraps its own control — padding would move the field too.
+   Every block child resets it, so nothing inside a control inherits the shift. */
 .acq-form label{
-  display:block;font-size:.62rem;letter-spacing:.3em;text-transform:uppercase;
-  color:var(--ink-mute);margin-bottom:1.4rem;
+  display:block;min-width:0;font-size:.62rem;letter-spacing:.3em;text-transform:uppercase;
+  color:var(--ink-mute);margin-bottom:1.3rem;text-indent:.7rem;
 }
-.f-row{display:grid;grid-template-columns:1fr 1fr;gap:1.4rem}
-.acq-form input,.acq-form select,.acq-form textarea{
-  display:block;width:100%;margin-top:.6rem;padding:.85rem 1rem;
-  background:rgba(255,255,255,.55);border:1px solid rgba(28,27,24,.18);
+.f-row{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem;min-width:0}
+/* Paired cells keep their controls on one line even when the two captions
+   don't. "How did you hear about us?" wraps to two lines on a phone while
+   "Ideal Budget" stays on one, which left one select sitting a caption-line
+   higher than its partner. The grid already makes both cells the same height;
+   this pins the caption to the top of the cell and the control to the bottom,
+   so both ends line up however the words fall. */
+.f-row > label{display:flex;flex-direction:column;justify-content:space-between}
+/* ---- Recessed fields ----
+   The counterpart to the pills above: those stand out of the surface, these
+   are pressed into it. Same light source, so the shading gathers inside the
+   top-left lip and the bounce returns along the lower-right; the interior is
+   a shade lighter than the section's cream, the way the floor of a shallow
+   cut catches more light than its walls. Corners are eased, not capsuled —
+   this is a field, not a button. No hard border, no outer shadow: an outward
+   cast would lift the field off the page, which is the opposite of pressed.
+   The old flat 1px box these carried is gone rather than layered under. */
+.acq-form input,.acq-form select,.acq-form textarea,.dd-btn,.f-file-box{
+  display:block;width:100%;min-width:0;margin-top:.35rem;padding:.8rem .95rem;text-indent:0;
+  background:rgba(255,255,255,.4);
+  border:1px solid rgba(var(--depth-shade),.09);border-radius:9px;
   color:var(--ink);font-family:var(--sans);font-weight:300;font-size:.9rem;
-  letter-spacing:.03em;transition:border-color .3s;border-radius:0;
+  letter-spacing:.03em;
+  box-shadow:
+    inset 2px 2px 5px rgba(var(--depth-shade),.15),
+    inset -2px -2px 5px rgba(255,255,255,.45);
+  transition:box-shadow var(--emboss-ease),border-color var(--emboss-ease),background var(--emboss-ease);
 }
-.acq-form input:focus,.acq-form select:focus,.acq-form textarea:focus{outline:none;border-color:var(--gold)}
-.dd{position:relative;margin-top:.6rem}
+/* Focus deepens the recess rather than drawing a ring around it, and the rim
+   picks up gold — the section's own accent — at an alpha that reads as lit
+   rather than outlined. */
+.acq-form input:focus,.acq-form select:focus,.acq-form textarea:focus,.dd-btn:focus-visible{
+  outline:none;
+  border-color:var(--gold-faint);
+  background:rgba(255,255,255,.5);
+  box-shadow:
+    inset 3px 3px 7px rgba(var(--depth-shade),.2),
+    inset -2px -2px 5px rgba(255,255,255,.5);
+}
+.acq-form ::placeholder{color:var(--ink-mute);opacity:.75}
+/* Conditional rows ease in rather than appearing at full height, so the
+   fields below settle instead of jumping. */
+.f-cond{animation:f-cond-in .26s ease both}
+@keyframes f-cond-in{
+  from{opacity:0;transform:translateY(-4px)}
+  to{opacity:1;transform:none}
+}
+@media(prefers-reduced-motion:reduce){
+  .f-cond{animation-duration:.01ms}
+}
+/* The opened component's interior. The fields themselves are a translucent
+   white over #begin's cream, which a menu cannot be — it has page behind it,
+   not section. This is that same wash resolved to a solid: rgba(255,255,255,.4)
+   over the gradient's mid tone. Declared once so the button and the list can
+   never drift apart. */
+.dd{position:relative;margin-top:.35rem;text-indent:0;--dd-face:#f7f3ea}
 .dd-error{display:none;font-size:.68rem;letter-spacing:.06em;color:#a83a3a;margin-top:.5rem}
 .dd.invalid~.dd-error,.dd.invalid+.dd-error{display:block}
-.dd.invalid .dd-btn{border-color:#a83a3a}
+.dd.invalid .dd-btn{border-color:rgba(168,58,58,.5)}
 .dd-btn{
-  width:100%;text-align:left;padding:.85rem 1rem;cursor:pointer;
-  background:rgba(255,255,255,.55);border:1px solid rgba(28,27,24,.18);
-  color:var(--ink);font-family:var(--sans);font-weight:300;font-size:.9rem;letter-spacing:.03em;
-  position:relative;transition:border-color .3s;
+  margin-top:0;text-align:left;cursor:pointer;
+  position:relative;padding-right:2.4rem;
+  display:flex;align-items:center;gap:.6rem;min-height:46px;
 }
-.dd-btn::after{content:'\2304';position:absolute;right:1rem;top:.55rem;color:var(--gold);font-size:1rem}
-.dd.open .dd-btn,.dd-btn:focus{border-color:var(--gold);outline:none}
+/* Now that the selects sit two to a row, the value has half the width it had.
+   It truncates rather than pushing the chevron or widening the column. */
+.dd-btn > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dd-ph{color:var(--ink-mute)}
+/* Drawn, not typed: the '⌄' character sat on its own baseline and never
+   centred against a flex row. */
+.dd-btn::after{
+  content:'';position:absolute;right:1.05rem;top:50%;
+  width:7px;height:7px;margin-top:-5px;
+  border-right:1.2px solid var(--gold);border-bottom:1.2px solid var(--gold);
+  transform:rotate(45deg);transition:transform .25s ease;
+}
+.dd.open .dd-btn::after{transform:rotate(225deg);margin-top:-2px}
+/* ---- Open: field and options as one sunken component ----
+   Closed, a dropdown is exactly the field it sits among, and nothing below
+   touches it. Open, the two stop being separate boxes: the gap between them
+   closes to nothing, the corners along the join square off, and the recess
+   each field already carries is split across the pair — top and sides on the
+   button, sides and floor on the list — so the whole opened shape reads as
+   one area pressed into the page rather than a menu resting above it. The
+   outer cast the menu used to carry is gone rather than dialled down; an
+   outward shadow lifts a layer off the page, which is the opposite of sunk.
+   Both halves take the field interior as a solid tone, so they match each
+   other exactly and neither goes darker than the form around them. */
+.dd.open .dd-btn{
+  border-color:var(--gold-faint);
+  border-bottom-color:transparent;
+  border-radius:9px 9px 0 0;
+  background:var(--dd-face);
+  box-shadow:
+    inset 2px 2px 5px rgba(var(--depth-shade),.15),
+    inset -2px 0 5px rgba(255,255,255,.45);
+}
+/* The menu continues the field: same fill, same rim, same corner radius
+   carried round the bottom. Capped in height so a nine-row list cannot run
+   off a phone screen. */
 .dd-list{
-  display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:20;
-  background:var(--ivory);border:1px solid var(--gold-faint);
-  box-shadow:0 20px 50px -16px rgba(11,23,48,.25);
+  display:none;position:absolute;left:0;right:0;top:100%;z-index:20;
+  padding:.3rem;
+  background:var(--dd-face);
+  border:1px solid var(--gold-faint);
+  /* The hairline that separates the chosen value from what is on offer. It
+     is the component's own join, so it is drawn once, here, and reads as
+     hierarchy rather than as a box being closed. */
+  border-top:1px solid rgba(var(--depth-shade),.12);
+  border-radius:0 0 9px 9px;
+  box-shadow:
+    inset 2px 0 5px rgba(var(--depth-shade),.15),
+    inset -2px -2px 5px rgba(255,255,255,.45);
+  max-height:min(46vh,320px);overflow-y:auto;
+  /* The list keeps its own scrolling. Without contain, running out of options
+     hands the wheel straight to the page behind, so the section jumps away
+     while the menu is still open and being read. */
+  overscroll-behavior:contain;
+  /* House navy rather than the platform grey, narrow enough to be an edge
+     marker instead of a piece of furniture. Firefox takes the standard
+     properties; WebKit and Blink need the pseudo-elements below. */
+  scrollbar-width:thin;
+  scrollbar-color:rgba(11,23,48,.38) transparent;
 }
+.dd-list::-webkit-scrollbar{width:6px}
+.dd-list::-webkit-scrollbar-track{background:transparent}
+.dd-list::-webkit-scrollbar-thumb{
+  background:rgba(11,23,48,.38);border-radius:3px;
+}
+.dd-list::-webkit-scrollbar-thumb:hover{background:rgba(11,23,48,.55)}
 .dd.open .dd-list{display:block}
 .dd-list button{
-  display:block;width:100%;text-align:left;padding:.75rem 1rem;cursor:pointer;
-  background:transparent;border:none;color:var(--ink);
+  display:flex;align-items:center;gap:.65rem;
+  width:100%;text-align:left;padding:.6rem .7rem;cursor:pointer;
+  background:transparent;border:none;border-radius:6px;color:var(--ink);
   font-family:var(--sans);font-weight:300;font-size:.85rem;letter-spacing:.04em;
-  transition:background .25s,color .25s;
+  transition:background .2s,color .2s;
 }
-.dd-list button:hover{background:var(--gold);color:var(--ivory)}
-.acq-form textarea{resize:vertical}
-.f-file input{padding:.7rem 1rem;cursor:pointer}
-.f-file input::file-selector-button{
-  background:transparent;border:1px solid var(--gold);color:var(--gold);
-  font-family:var(--sans);font-size:.62rem;letter-spacing:.24em;text-transform:uppercase;
-  padding:.5rem 1.1rem;margin-right:1rem;cursor:pointer;transition:all .3s;
+/* Champagne wash, navy ink. Solid --gold (#AE8C4C) is a bronze at full
+   strength: as a filled row it was the darkest, heaviest thing on a cream form
+   — louder than the CTA — and it dragged the option's ink to ivory, which is
+   the weakest contrast pair here. The lighter --gold-bright at a low alpha
+   reads as champagne over the panel rather than as a bronze bar, and keeping
+   the text navy holds it near its full contrast against the pale ground. The
+   marker is unmistakable without becoming the loudest element in the form. */
+.dd-list button:hover,.dd-list button:focus-visible{
+  background:rgba(217,187,127,.3);color:var(--navy);outline:none;
 }
-.f-file input::file-selector-button:hover{border-color:var(--navy);color:var(--navy)}
+/* The chosen row is named in gold ink, not by a filled ground, so the current
+   value and the row under the cursor stay distinguishable. */
+.dd-list button.is-sel{color:var(--gold)}
+.dd-list button.is-sel:hover{color:var(--navy)}
+/* The exploratory alternatives — "Exploring Ideas", "To Be Determined". A
+   shade lighter, italic, and set off by a rule, so they read as a different
+   KIND of answer rather than as a greyed-out one. */
+.dd-list button.dd-alt{
+  color:var(--ink-mute);font-style:italic;letter-spacing:.05em;
+  margin-top:.3rem;padding-top:.7rem;
+  border-top:1px solid rgba(var(--depth-shade),.14);border-radius:0 0 6px 6px;
+}
+.dd-list button.dd-alt:hover{color:var(--navy)}
+.dd-ic{
+  flex:none;display:flex;align-items:center;justify-content:center;
+  width:15px;height:15px;color:var(--gold);
+  transition:color .2s;
+}
+/* flex:none matters: .dd-ic is a flex box, so a mark asked to render LARGER
+   than it would otherwise be shrunk straight back down to fit. */
+.dd-ic svg{width:100%;height:100%;flex:none}
+/* Every mark in this list renders at the same drawn size — 13px of actual ink,
+   measured, not assumed.
+   Sizing them all to one box does NOT achieve that, because the glyphs fill
+   their 24-unit viewBoxes by wildly different amounts: Google's G and the solid
+   marks run edge to edge, Instagram's square stops at 18.4 units, and the
+   referral figures occupy barely 16. At a shared box Google came out 15px
+   against the solids' 13 and the referral figures' 10 — which is exactly the
+   size difference you can see. Each tier is therefore scaled by whatever it
+   takes to land its own ink on 13px. Each logo's geometry is untouched. */
+.dd-ic svg.ic-mass{width:87%;height:87%}    /* 24 units of ink → 13px */
+.dd-ic svg.ic-ig{width:102%;height:102%}    /* 20.3 units (square + stroke) */
+.dd-ic svg.ic-people{width:127%;height:127%}/* 16.4 units */
+.dd-ic svg.ic-dots{width:125%;height:125%}  /* 10.4 units across the three */
+/* The marks stay gold throughout — they were flipping to ivory to survive the
+   old bronze fill, which is no longer there to survive. */
+/* No drag handle: the grabber Chrome and Safari paint in the corner is a piece
+   of raw browser furniture sitting inside an otherwise finished recessed
+   field, and it is the one thing in the form that does not belong to the
+   house. The field keeps its generous default depth instead. */
+.acq-form textarea{resize:none;min-height:96px;line-height:1.6}
+/* The real input is kept in the DOM — it carries the file on submit — but
+   taken out of sight, with the box below acting as the control. */
+.f-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.f-file{position:relative}
+.f-file-box{
+  display:flex;align-items:center;gap:.85rem;cursor:pointer;
+  padding:.6rem .65rem;
+}
+.f-file-btn{
+  flex:none;font-size:.6rem;letter-spacing:.22em;text-transform:uppercase;
+  /* The secondary action: a lit ivory face with gold lettering, against the
+     solid gold of Start Your Story. The two read as a pair with an obvious
+     order — one is the surface catching the light, the other is the light —
+     rather than as two equal buttons. Built from the section's own raised
+     token at its restrained weight, because this sits inside a recessed field
+     and must not out-rank the CTA below it. */
+  color:var(--gold);padding:.55rem 1rem;border-radius:7px;
+  /* True white, not the ivory the rest of the section is built from. Against
+     a warm cream ground a genuinely neutral face is the one surface that can
+     read as standing in front of everything around it, which is what earns
+     this control its place next to the gold CTA. Held to a two-step grade in
+     the same top-lit direction as every other raised surface here, so it is
+     lit like its neighbours while staying white. */
+  background:linear-gradient(180deg,#fff,#fbfbfa);
+  border:1px solid rgba(var(--depth-shade),.12);
+  box-shadow:var(--emboss-raised-soft);
+  transition:box-shadow var(--emboss-ease),background var(--emboss-ease),color var(--emboss-ease);
+}
+/* Under the cursor it stands a little further forward — the same white face
+   lit slightly harder and lifted on the fuller raised token, rather than a
+   colour change. The whole box is the hit area, so the hover is driven from
+   the box and not the button, and the lettering warms to the brighter gold
+   the header's own icons reach for. */
+.f-file-box:hover .f-file-btn,
+.f-file:has(input:focus-visible) .f-file-btn{
+  background:linear-gradient(180deg,#fff,#fdfdfc);
+  border-color:rgba(174,140,76,.35);
+  box-shadow:var(--emboss-raised);
+}
+/* Pressed in as the finger lands, matching the CTA's own behaviour — the
+   shared pressed token, so the hollow is the one this section uses. Held
+   after the hover rule so a press still wins while the cursor is over it. */
+.f-file-box:active .f-file-btn,
+.f-file-box:hover:active .f-file-btn{
+  background:#f0efec;
+  box-shadow:var(--emboss-pressed);
+}
+.f-file-name{
+  min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:.78rem;letter-spacing:.04em;text-transform:none;color:var(--ink-mute);
+}
 .f-hint{text-transform:none;letter-spacing:.08em;color:var(--ink-mute)}
-.acq-form .btn-gold{background:var(--navy);border:1px solid var(--navy);color:var(--ivory)}
-.acq-form .btn-gold:hover{background:var(--gold);border-color:var(--gold);color:#fff}
+/* ---- The primary action ----
+   The strongest tactile treatment in the form, and the only thing here that
+   moves through three states. The flat navy rectangle and its gold-swap hover
+   are gone rather than built over — the swap turned the whole control a
+   different colour, which is a louder event than anything else on the page.
+   Same structure as every other embossed surface (a lit top-left lip, shading
+   down-right, a short contact pass and a wider ambient one), tuned for the
+   gold face: the highlight is a lifted champagne and the shadow is the gold's
+   own darker ground, so the depth stays inside the one hue. Alphas run higher
+   than the fields' precisely because this should out-rank them — gold for the
+   primary action, navy for the secondary one on the upload above. */
+.acq-form .btn-gold{
+  /* Ranged with the fields rather than sized to its own words: the form's
+     controls all run the full width of the container, and the action that
+     closes them reads as the foot of that column instead of a smaller object
+     floating under it. Set at every width, not just on a phone. */
+  display:block;width:100%;
+  /* Set apart from the upload above it rather than following it. The form's
+     groups sit 1.3rem apart, and at the old 1.6rem this button cleared the
+     one above by a quarter of a rem — close enough to read as attached to the
+     upload control instead of as the thing the form has been building to.
+     2.6rem is that group rhythm doubled: unmistakably more air than any gap
+     inside the form, which is what the closing action should have. Declared
+     here rather than inline so it stays with the rest of the button. */
+  margin-top:2.6rem;
+  /* Plain white, not the section's ivory. The ivory carries a warm cast that
+     sat too close to the gold underneath it; true white is the cleanest break
+     from the fill and gives the closing action the strongest contrast on the
+     form. */
+  background:var(--gold);color:#fff;
+  border:1px solid rgba(120,93,44,.45);
+  border-radius:10px;
+  box-shadow:
+    inset 1px 1px 0 rgba(255,255,255,.3),
+    inset -1px -1px 0 rgba(90,68,26,.35),
+    1px 2px 4px rgba(90,68,26,.3),
+    4px 7px 14px rgba(90,68,26,.2);
+  transition:box-shadow var(--emboss-ease),border-color var(--emboss-ease),background var(--emboss-ease);
+}
+/* Pressed into the page: the lighting inverts, the exterior passes go, and the
+   face darkens a shade the way a surface does once it is below its
+   surroundings. No movement and no scaling — the depth carries it. */
+.acq-form .btn-gold:hover,
+.acq-form .btn-gold:focus-visible{
+  background:#9d7d42;
+  border-color:rgba(90,68,26,.5);
+  /* The shared .btn-gold:hover rule paints a four-way text-shadow to fake a
+     bolder face on its gold fill. There is no fill swap here, so it would only
+     smear the ivory lettering. */
+  text-shadow:none;
+  box-shadow:
+    inset 4px 4px 9px rgba(0,0,0,.5),
+    inset -3px -3px 7px rgba(255,255,255,.09),
+    inset 0 0 0 1px rgba(0,0,0,.25);
+}
+/* Held down — the same hollow, deeper, for the length of the press. */
+.acq-form .btn-gold:active{
+  box-shadow:
+    inset 5px 5px 11px rgba(0,0,0,.6),
+    inset -3px -3px 7px rgba(255,255,255,.07),
+    inset 0 0 0 1px rgba(0,0,0,.3);
+}
+@media(prefers-reduced-motion:reduce){
+  .acq-form .btn-gold{transition-duration:.01ms}
+}
 
 
 /* ================ FOOTER ================ */
@@ -2202,7 +2733,6 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
   .assure:nth-child(3){border-left:none}
   .assure{border-top:1px solid var(--line)}
   .assure:nth-child(-n+2){border-top:none}
-  .contact-grid{grid-template-columns:1fr}
 
   /* Footer: crest centered on top, nav + socials centered underneath —
      matches the mobile treatment instead of the old asymmetric 2-col grid. */
@@ -2227,7 +2757,9 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
 }
 .col-dots{display:none}
 @media(max-width:640px){
-  .f-row{grid-template-columns:1fr}
+  /* .f-row used to drop to one column here. It no longer does: First/Last and
+     Email/Contact stay paired at every width, and the mobile block below
+     tightens their padding and gap instead so the two stay usable. */
   .col-grid{
     display:flex;
     grid-template-columns:none;
@@ -2304,7 +2836,9 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
      than the artwork beside it. Narrowing the measure would make that worse —
      fewer characters per line means more lines — so the size comes down
      instead, and the artwork takes its full column. */
-  .phil p{font-size:.84rem;line-height:1.56}
+  /* Shared editorial tier — Heritage had no override at this width at all, so
+     it stayed on the base clamp while Philosophy stepped down beside it. */
+  .phil p,.her-body p{font-size:.84rem;line-height:1.56}
   .phil-art img{max-width:100%}
 
   /* section rhythm */
@@ -2404,8 +2938,20 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
   /* nowrap would overflow on a phone — let it breathe over two lines */
   .hero-main{white-space:normal}
   .hero-main.uni-h{font-size:clamp(2.05rem,9vw,2.7rem)!important;line-height:1.16!important}
-  .hero-actions{gap:.75rem;width:100%;flex-wrap:nowrap;justify-content:center;align-self:stretch;margin-top:.85rem}
-  .hero-actions .btn{flex:1 1 0;min-width:0;text-align:center;padding:.85rem .7rem;min-height:44px;font-size:.55rem;letter-spacing:.22em;white-space:nowrap}
+  .hero-actions{gap:.7rem;width:100%;flex-wrap:nowrap;justify-content:center;align-self:stretch;margin-top:.85rem}
+  /* Same principle as the tablet/desktop band above: the two halves are equal
+     and the type is sized to fit the narrower of the two labels' boxes. On a
+     phone the row is already the full column, so there is no width to borrow —
+     "Discover the Kingdom" has to come down to clear half of a 320px screen.
+     It tapers from .58rem at ~520px to .47rem at 320, where it clears its half
+     by ~9px; padding tapers with it. Vertical padding and the 44px minimum are
+     untouched, so the tap target is unchanged. */
+  .hero-actions .btn{
+    flex:1 1 0;min-width:0;text-align:center;min-height:44px;white-space:nowrap;
+    padding:.85rem clamp(.35rem,1.6vw,.7rem);
+    font-size:clamp(.47rem,calc(.294rem + .88vw),.58rem);
+    letter-spacing:.18em;
+  }
 
   /* ---- philosophy ---- */
   /* Heritage and Philosophy are now pinned + cross-slid on mobile too, the
@@ -2459,7 +3005,17 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
   /* Smaller than the artwork's own hand, not competing with it — and pulled in
      from both edges so the column has margins to read against instead of
      running to the bezel. */
-  .phil p{font-size:.84rem;line-height:1.6;margin-bottom:0}
+  /* ---- Shared editorial body tier ----
+     Heritage's copy and Philosophy's copy do the same job on two panels of one
+     continuous pan, and their base rules were already written to match. They
+     drifted apart only in the breakpoint overrides, where Heritage was given
+     .9rem/1.5 against Philosophy's .84rem/1.6 — a different size AND a
+     different rhythm on exactly the screens where the two panels sit closest
+     together. Set once, for both, so a future change to one cannot silently
+     leave the other behind. Margins stay per-section: those are spacing, not
+     typography, and each panel has its own vertical budget. */
+  .phil p,.her-body p{font-size:.84rem;line-height:1.6}
+  .phil p{margin-bottom:0}
   .phil-copy{padding:0 1.15rem}
   .phil.phil-expanded p{margin-bottom:.7rem}
   .phil.phil-expanded p:last-child{margin-bottom:0}
@@ -2477,7 +3033,20 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
   /* ---- heritage ---- */
   /* Pinned + cross-slid on mobile too now (see Philosophy's note below) —
      padding trimmed so the stacked layout fits one 100dvh screen. */
-  #heritage{padding:.9rem 0}
+  /* ---- The pinned panel starts under the fixed header ----
+     .duo-pin is sticky at top:0 and a full 100vh tall, and .duo-panel centres
+     its composition inside that whole box — including the 80px band the fixed
+     header sits over. So the moment the track pins, Heritage's stack centres
+     against the viewport rather than against the part of it you can actually
+     see, and its top slides underneath the header: measured at 375x667, the
+     eyebrow ran 25-44px and the heading began at 52px, entirely behind an
+     80px header. That is why it looks right on the way in — the panel is not
+     stuck yet, so it sits lower — and wrong from the moment it reaches its
+     focal position.
+     The pin keeps its full-bleed box so the shared backdrop still paints
+     behind the header; only the composition is inset past it. Philosophy's
+     content already clears the header on its own, so it is left alone. */
+  #heritage{padding:calc(var(--sk-hdr) + .9rem) 0 .9rem}
   .her-head h2.uni-h{font-size:clamp(1.2rem,6.2vw,2rem)!important;white-space:nowrap}
   .her-stack{gap:.6rem}
   .her-grid{grid-template-columns:1fr;gap:1rem;text-align:center}
@@ -2491,7 +3060,9 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
      narrow-but-tall screens, so the frame can never outgrow its column. */
   .her-photo-crop{--frame-w:min(100%,calc(52vh / 1.3438))}
   .her-body{text-align:center;max-width:100%;padding:0 1.15rem}
-  .her-body p{font-size:.9rem;line-height:1.5;max-width:100%;margin-bottom:.45rem}
+  /* Size and rhythm come from the shared editorial tier above (.phil p,
+     .her-body p) — only this panel's own measure and spacing are set here. */
+  .her-body p{max-width:100%;margin-bottom:.45rem}
 
   /* ---- journey ---- */
   #journey{padding:4.5rem 0}
@@ -2532,15 +3103,75 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
   .faq-a p{font-size:.88rem}
 
   /* ---- start your story ---- */
-  #begin{padding:4.5rem 0}
-  .contact-opt{padding:1.9rem 1.4rem;min-height:64px}
-  .cc-label{font-size:1.35rem}
-  .cc-sub{font-size:.82rem;margin-top:.7rem;max-width:30ch}
-  .acq-form{margin-top:2.4rem}
-  /* 16px minimum stops iOS auto-zooming the viewport on focus */
-  .acq-form input,.acq-form select,.acq-form textarea,.dd-btn{font-size:16px;padding:.9rem 1rem}
-  .acq-form label{font-size:.66rem}
-  .dd-list button{padding:.9rem 1rem;font-size:.92rem;min-height:48px}
+  /* Same shallow-head/deep-foot proportion as the desktop rule, at a phone's
+     scale — a flat 4.5rem either side put the heading back on the optical
+     centre here even though it had been lifted everywhere else. */
+  #begin{padding:clamp(2.5rem,5vh,3.5rem) 0 clamp(5rem,13vh,8rem)}
+  /* Mobile is the one breakpoint that stacks. #begin drops its side padding
+     here, so the capsules take the site's standard 1.5rem gutter themselves
+     and then fill everything left over. */
+  /* #begin centres its content in a full-height column, and with the form
+     closed that left 241px of empty ground above the heading against only
+     42px between the heading and the Chat capsule — the title read as sitting
+     on top of the buttons with a field of nothing over it. This lifts the
+     heading alone and hands that 26px to the gap below it: ~215px above,
+     ~68px to Chat. Nothing else moves.
+     `top`, not `transform`: .reveal.in animates this heading in on transform,
+     and a transform here would win on specificity and kill the rise. Offsets
+     with position are invisible to layout, so the capsules keep the exact
+     position and spacing they already had. Phone only — the desktop and
+     tablet section is not built this way and shows no such imbalance. */
+  #begin h2.begin-h{position:relative;top:-26px}
+  /* The heading-to-controls step scales here too, on the same principle as the
+     desktop rule — the three pills keep their own even .9rem rhythm. */
+  .contact-grid{grid-template-columns:1fr;padding:0 1.5rem;gap:.9rem;margin-top:clamp(2.6rem,5.5vh,3.6rem)}
+  .contact-opt{padding:1.05rem 1.35rem;min-height:78px;gap:.95rem}
+  .cc-label{font-size:1.3rem}
+  .cc-sub{font-size:.8rem;max-width:26ch}
+  /* Full width again, so the chevron comes back. */
+  .cc-chev{display:block;width:16px;height:16px}
+  .cc-icon{width:25px;height:25px}
+  .cc-icon-wa{width:23px;height:23px}
+  .cc-icon-mask{width:30px}
+  /* #begin drops its side padding here, so the form takes the site's own
+     1.5rem gutter — matching the pills above it. */
+  .acq-form{margin-top:2.4rem;padding:0 1.5rem}
+  /* 16px minimum stops iOS auto-zooming the viewport on focus. Horizontal
+     padding tightens so First/Last and Email/Contact stay two-up without
+     crowding; the rows themselves never collapse to one column. */
+  .acq-form input,.acq-form select,.acq-form textarea,.f-file-box{font-size:16px;padding:.85rem .8rem}
+  /* Every closed single-line control ends up one height. The 16px floor above
+     is an iOS zoom guard and applies only to text entry, so at the shared 1.75
+     leading the inputs stood 4.5px taller than the dropdown buttons beside
+     them, which set at .84rem. Pinning the inputs' leading to the selects' own
+     text box (16 x 1.47 = 23.5px, the same as 13.44 x 1.75) squares the two
+     without touching either font size, the padding, or the dropdowns — which
+     keep the height they already had. Desktop and tablet already matched at
+     52.8px and are left alone. */
+  .acq-form input{line-height:1.47}
+  .f-row{gap:.7rem}
+  .acq-form label{font-size:.66rem;letter-spacing:.22em}
+  /* ---- The one row that stops being a row on a phone ----
+     "How did you hear about us?" is the longest caption on the form and does
+     not fit a half-width phone column at the shared type size — no split of
+     the row makes it, which is why widening its cell only bought it a second
+     line. So this pair unstacks instead: both fields take the full width, the
+     caption gets its single line at exactly the size, tracking and colour
+     every other label has, and nothing is shrunk to make it work. Category
+     and Diamond Type are short enough to stay two-up and are left alone.
+     row-gap is dropped to zero because each label already carries the form's
+     1.3rem group spacing beneath it — the grid gap would land on top of that
+     and open these two wider apart than every other pair on the form.
+     Phone only; tablet and desktop keep the two-column row. */
+  .f-row-stack{grid-template-columns:1fr;row-gap:0}
+  /* The 16px floor exists to stop iOS zooming the viewport when a field takes
+     focus. That applies to text entry, not to a button — so the selects, which
+     now share a row two at a time, are free to set smaller and keep their
+     values on one line. */
+  .dd-btn{font-size:.84rem;padding:.85rem 1.9rem .85rem .7rem}
+  .dd-list button{padding:.7rem .6rem;font-size:.85rem;min-height:44px;gap:.5rem}
+  .f-file-box{padding:.55rem .55rem;gap:.6rem}
+  .f-file-btn{font-size:.58rem;letter-spacing:.16em;padding:.5rem .75rem}
   .acq-form button[type=submit]{width:100%;min-height:50px}
 
   /* ---- footer condensed & centered ---- */
@@ -2596,14 +3227,25 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
 /* ---- very small phones ---- */
 @media(max-width:380px){
   .wrap{padding:0 1.2rem}
+  /* "Discuss in person or virtually." was overrunning here and wrapping to a
+     second line, which made the Consult pill taller than the two above it.
+     The text column gets the width back: the chevron steps aside, as it
+     already does at tablet widths, and the icon gap tightens a little. */
+  .cc-sub{font-size:.72rem}
+  .cc-chev{display:none}
+  .cc-text{margin-left:.5rem}
+  /* Narrower still, so the long caption needs one more step down. */
+  .acq-form label.f-lab-tight{font-size:.54rem;letter-spacing:.04em}
+  .acq-form{padding:0 1.2rem}
   .hero-inner{padding:0 1.2rem 3.4rem}
   .hero-script{font-size:1.75rem}
   .hero-main.uni-h{font-size:1.7rem!important}
   /* Smallest phones get slightly smaller copy, not larger — this used to set
      1.08rem, which overrode the mobile size upward on exactly the screens with
      the least room. */
-  .phil p{font-size:.81rem}
-  .her-body p{font-size:.87rem}
+  /* Both halves of the shared editorial tier step down together — .87 against
+     .81 here was the same drift as at 760px, one breakpoint further down. */
+  .phil p,.her-body p{font-size:.81rem}
   .faq-q{font-size:1rem}
   /* Only the floor moves. Below ~352px the heading was pinning to its minimum
      while the row kept narrowing, which squeezed the pill's ramp to ~30px;
@@ -2622,10 +3264,63 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
    here, only the vertical budget each piece is given, so the whole stack
    fits within the panel instead of overflowing it. */
 @media(max-width:760px) and (max-height:700px){
-  #heritage{padding:.5rem 0}
-  .her-stack{gap:.4rem}
-  .her-photo-crop{--frame-w:min(100%,calc(38vh / 1.3438))}
-  .her-body p{margin-bottom:.3rem}
+  /* Keeps the header inset from the rule above — a bare `.5rem 0` here would
+     drop it again on exactly the short screens that need it most. */
+  #heritage{padding:calc(var(--sk-hdr) + .5rem) 0 .25rem}
+  /* ---- Space recovered from the joins, not from the content ----
+     Every gap in this stack is halved so the portrait can have the pixels
+     instead. Nothing here touches a size, a weight, a line-height or a word —
+     only the distances between the parts, and only on screens short enough
+     that the portrait was being squeezed to fit. Roughly 30px comes back:
+     eyebrow-to-heading 8→4, heading-to-grid 6.4→3.2, the grid's own top
+     margin 6.4→0, portrait-to-copy 16→8, and each paragraph's tail 4.8→2.4.
+     The budget constant below is reduced by the same amount, which is how the
+     recovered space reaches the artwork rather than becoming slack. */
+  .her-stack{gap:.2rem}
+  .her-head{gap:.25rem}
+  .her-grid{margin-top:0;gap:.5rem}
+  /* The frame's height IS this budget — the divisor turns it into a width at
+     the artwork's own ratio. A flat 38vh put the portrait at 38% of the screen
+     while the Philosophy letter across the pan kept its 53vh, so the portrait
+     arrived at barely seven tenths of the artwork it is meant to be paired
+     with, on exactly the screens where the two are seen closest together.
+
+     Two limits instead of one guessed fraction. It asks for the SAME 53vh the
+     letter takes, and gives way only when the screen genuinely cannot seat the
+     rest of the stack — the eyebrow, heading, copy and the (now tightened)
+     gaps come to roughly 300px and, unlike the artwork, they do not shrink
+     with the viewport, so that is what the portrait has to leave behind. On a
+     660px screen the first limit binds and the two artworks match; at 568px
+     the second does, and the portrait gives back only what the heading needs
+     to stay in frame. Down from 330 by exactly the spacing recovered above. */
+  .her-photo-crop{--frame-w:min(100%,calc(min(53vh,100dvh - var(--sk-hdr) - 306px) / 1.3438))}
+  .her-body p{margin-bottom:.15rem}
+}
+
+/* ---- Exceptionally short screens only (≈568px tall and under) ----
+   Below 620px of viewport there is no arrangement of gaps that leaves the
+   portrait a presence worth having: after the fixed header and the tightened
+   stack above, 484px remain and the copy alone claims over 300 of them. So on
+   these screens — and only these — the Heritage copy gives the artwork its
+   room back. An approved trade: the portrait is the subject of this panel, and
+   below 620px the composition matters more than the last point of type size.
+
+   1.9vh rather than a fixed small size, so the reduction arrives gradually as
+   height runs out and stops the moment there is room again — at 620px the
+   clamp is already back at its .81rem ceiling, which is why 360x640 and
+   everything above it are untouched.
+
+   line-height is left at its inherited 1.6: being unitless it scales with the
+   type on its own, so the copy keeps its rhythm rather than being separately
+   compressed.
+
+   Heritage only. .phil p is deliberately not in this selector — Philosophy's
+   typography is unchanged, and its own panel has room to spare here. */
+@media(max-width:760px) and (max-height:620px){
+  .her-body p{font-size:clamp(.66rem,1.9vh,.81rem)}
+  /* The constant drops by what the smaller copy gives up, which is how the
+     recovered height reaches the artwork instead of becoming slack. */
+  .her-photo-crop{--frame-w:min(100%,calc(min(53vh,100dvh - var(--sk-hdr) - 262px) / 1.3438))}
 }
 
 @media(prefers-reduced-motion:reduce){
@@ -2657,7 +3352,23 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
   width:58px;height:58px;border-radius:50% 50% 0 50%;border:2px solid var(--ivory);
   background:var(--navy);color:var(--ivory);cursor:pointer;
   display:flex;align-items:center;justify-content:center;
-  box-shadow:0 12px 32px -8px rgba(11,23,48,.5);transition:background .3s,border-color .3s,color .3s;
+  box-shadow:0 12px 32px -8px rgba(11,23,48,.5);
+  transform-origin:bottom right;
+  transition:background .3s,border-color .3s,color .3s,
+    opacity .24s ease,transform .28s cubic-bezier(.4,0,.2,1);
+}
+/* ---- Launcher into panel ----
+   The two are never both on screen. As the panel opens the launcher fades and
+   draws down into the corner they share; the panel grows out of that same
+   corner to meet it, so the one reads as having become the other rather than
+   as a card appearing on top of a button that is still sitting there. Closing
+   simply runs the other way — the launcher is only ever moved by a transform,
+   so it returns to exactly the fixed position it started from.
+   visibility, not display: a transition needs something to travel, and this
+   still takes it out of the tab order once it has gone. */
+.cw.open .cw-btn{
+  opacity:0;transform:scale(.6);visibility:hidden;pointer-events:none;
+  transition:opacity .2s ease,transform .24s cubic-bezier(.4,0,.2,1),visibility 0s linear .24s;
 }
 .cw-btn svg,.cw-btn-mark{transition:transform .3s}
 /* A flat fill cut to the artwork's alpha, not a recoloured image — see the
@@ -2688,52 +3399,265 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
    mark arrive at their hover colours on the same frame rather than one
    trailing the other. */
 .cw-btn:hover svg,.cw-btn:hover .cw-btn-mark{transform:scale(1.18)}
+/* ---- One shape, two states ----
+   The panel is not a card that appears over the launcher — it IS the launcher,
+   grown. Collapsed it carries the button's exact box: same 58px square, same
+   navy, same lopsided radius, pinned to the same bottom-right corner. Opening
+   animates width, height, radius, fill and shadow together; the corner never
+   moves, so the shape expands up and to the left out of the button and reads
+   as one object changing size. Collapsing runs the identical transition
+   backwards. The launcher itself only has to step aside for the moment the
+   shape starts moving, which is why nothing is ever left sitting underneath.
+
+   Height is a definite value rather than content-driven precisely so it can be
+   animated — .cw-body takes the slack with flex and scrolls internally. */
 .cw-panel{
-  position:absolute;right:0;bottom:88px;width:min(360px,calc(100vw - 2.8rem));
-  background:var(--ivory);border:1px solid var(--line);
-  box-shadow:0 30px 80px -20px rgba(11,23,48,.45);
-  display:none;flex-direction:column;overflow:hidden;
+  position:absolute;right:0;bottom:0;
+  width:58px;height:58px;
+  background:var(--navy);
+  border:1px solid transparent;
+  border-radius:50% 50% 0 50%;
+  box-shadow:0 12px 32px -8px rgba(11,23,48,.5);
+  display:flex;flex-direction:column;overflow:hidden;
+  opacity:0;pointer-events:none;
+  transition:
+    width .34s cubic-bezier(.4,0,.2,1),
+    height .34s cubic-bezier(.4,0,.2,1),
+    border-radius .34s cubic-bezier(.4,0,.2,1),
+    background .34s ease,
+    box-shadow .34s ease,
+    border-color .34s ease,
+    opacity .12s ease;
 }
-.cw.open .cw-panel{display:flex;animation:cwup .35s ease}
-@keyframes cwup{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@media(min-width:761px){
+  /* Matches the larger launcher at this width, so the collapsed panel keeps
+     sitting exactly on top of it. */
+  .cw-panel{width:72px;height:72px}
+}
+.cw.open .cw-panel{
+  width:min(374px,calc(100vw - 2.4rem));
+  height:min(560px,calc(100dvh - 6.5rem));
+  background:var(--ivory);
+  border-color:rgba(var(--depth-shade),.16);
+  /* The launcher's own signature, kept at full size: three corners eased and
+     the lower-right cut square, exactly as .cw-btn's `50% 50% 0 50%` does it.
+     It is the clearest evidence that the expanded panel is the same object as
+     the icon it grew out of — and because the radius animates between the two
+     states, that corner stays square the whole way through the morph. */
+  border-radius:16px 16px 0 16px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.7),
+    0 2px 6px rgba(11,23,48,.14),
+    0 18px 44px -18px rgba(11,23,48,.4);
+  opacity:1;pointer-events:auto;
+}
+/* The contents arrive after the box has most of its size, so nothing is seen
+   being stretched on the way out. */
+.cw-panel > *{opacity:0;transition:opacity .16s ease}
+.cw.open .cw-panel > *{opacity:1;transition:opacity .2s ease .16s}
+/* The launcher hands over immediately and comes back at the end, under the
+   growing shape either way. */
+.cw.open .cw-btn{opacity:0;pointer-events:none;transition:opacity .1s ease}
+@media(prefers-reduced-motion:reduce){
+  .cw-panel,.cw-panel > *,.cw .cw-btn{transition-duration:.01ms!important}
+}
+/* Navy header — the site's own --navy, with the mark and the name in ivory. */
 .cw-head{
-  background:var(--navy);color:var(--ivory);padding:1.1rem 1.3rem;
+  flex:none;
+  background:var(--navy);color:var(--ivory);padding:1.15rem 1.3rem;
   display:flex;justify-content:space-between;align-items:center;gap:1rem;
 }
-.cw-title{font-size:1.15rem;font-weight:400}
-.cw-sub{font-size:.6rem;letter-spacing:.26em;text-transform:uppercase;color:var(--gold-bright);margin-top:.15rem}
-.cw-close{background:none;border:none;color:rgba(251,249,244,.85);font-size:1.5rem;cursor:pointer;line-height:1}
-.cw-close:hover{color:#fff}
-.cw-body{padding:1.1rem;max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:.7rem}
+.cw-ident{display:flex;align-items:center;gap:.85rem;min-width:0}
+/* The launcher's own artwork at a supporting size, drawn as a mask over a flat
+   ivory fill for the same reason the launcher is — a PNG's soft edge would
+   otherwise show as a pale fringe against the navy. */
+/* Centred by eye, not by box. Matching the two boxes centres the mark against
+   the whole line — including the descender in "Kingdom" — which leaves it
+   sitting visibly low against the capitals it is paired with. The nudge lifts
+   it onto the cap-height centre, where the eye expects it. */
+.cw-head-mark{
+  flex:none;width:23px;height:23px;background-color:var(--ivory);
+  transform:translateY(-1px);
+  -webkit-mask-position:center;mask-position:center;
+  -webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+  -webkit-mask-size:contain;mask-size:contain;
+}
+.cw-title{font-size:1.35rem;font-weight:400;letter-spacing:.01em;line-height:1.1;white-space:nowrap}
+/* On the narrowest handsets the header runs out of room between the mark, the
+   name and the collapse chevron, and the name — set nowrap so it can never
+   break over two lines — would crowd the chevron out of its own corner. A step
+   down gives all three their space. Declared immediately after the rule it
+   overrides: a media query adds no specificity, so from further up the file
+   the base size would simply win. */
+@media(max-width:380px){
+  .cw-head{padding:1rem 1.05rem}
+  .cw-title{font-size:1.12rem}
+  .cw-head-mark{width:17px;height:17px}
+  .cw-ident{gap:.5rem}
+}
+/* Collapse. Two hairlines meeting at a point, drawn from a rotated corner so
+   the V sits on the button's own centre rather than on a glyph's baseline. */
+.cw-collapse{
+  flex:none;background:none;border:none;cursor:pointer;
+  width:30px;height:30px;display:flex;align-items:center;justify-content:center;
+  padding:0;
+}
+/* The mark shrinks; the 30px button around it does not — the target stays a
+   comfortable tap while the symbol becomes a hairline. */
+.cw-collapse span{
+  width:7px;height:7px;margin-top:-3px;
+  border-right:1px solid var(--gold-bright);
+  border-bottom:1px solid var(--gold-bright);
+  transform:rotate(45deg);
+  transition:border-color .25s ease,transform .25s ease;
+}
+.cw-collapse:hover span{border-color:#fff;transform:rotate(45deg) translate(1px,1px)}
+/* ---- The thread ----
+   Takes whatever height the panel has left and scrolls inside itself, so a new
+   message never moves the page behind it. */
+.cw-body{
+  flex:1;min-height:0;
+  padding:1.1rem 1.2rem 1.2rem;overflow-y:auto;
+  display:flex;flex-direction:column;gap:.65rem;
+}
+/* The visitor's own words: warmer ivory with a gold edge, on the side the
+   conversation is sent from. */
 .cw-msg{
-  font-size:.82rem;font-weight:300;line-height:1.6;padding:.7rem 1rem;max-width:88%;
+  font-size:.82rem;font-weight:300;line-height:1.65;
+  padding:.7rem .9rem;max-width:88%;border-radius:14px;
+  animation:cw-in .22s ease both;
 }
-.cw-msg.bot{background:var(--paper);border:1px solid var(--line);color:var(--ink);align-self:flex-start}
-.cw-msg.user{background:var(--navy);color:var(--ivory);align-self:flex-end}
-.cw-chips{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.2rem}
-.cw-chips button{
-  background:transparent;border:1px solid var(--gold-faint);color:var(--gold);
-  font-family:var(--sans);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;
-  padding:.45rem .8rem;cursor:pointer;transition:all .3s;
+@keyframes cw-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){
+  .cw-msg{animation-duration:.01ms}
 }
-.cw-chips button:hover{border-color:var(--gold);background:rgba(174,140,76,.08)}
-.cw-foot{display:flex;border-top:1px solid var(--line)}
+/* The visitor speaks in navy, the house replies in white — the site's own two
+   grounds, so the thread reads at a glance without borrowing a messaging
+   app's blue and grey. */
+/* One square corner gives each bubble its direction — the visitor's points
+   right, the reply points left — which is all a speech bubble needs. No tails,
+   no triangles. Both sit very slightly proud of the thread: a short contact
+   shadow and a lit top edge, nothing that would read as a floating card. */
+.cw-msg.user{
+  align-self:flex-end;border-bottom-right-radius:0;
+  background:var(--navy);
+  border:1px solid var(--navy);
+  color:var(--ivory);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.1),
+    1px 2px 4px rgba(11,23,48,.22);
+}
+.cw-msg.concierge{
+  align-self:flex-start;border-bottom-left-radius:0;
+  background:#fff;border:1px solid rgba(var(--depth-shade),.14);
+  color:var(--navy);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.9),
+    1px 2px 4px rgba(var(--depth-shade),.14);
+}
+.cw-msg.concierge p{margin:0 0 .5rem}
+.cw-msg.concierge p:last-of-type{margin-bottom:0}
+/* Only ever shown when the FAQ could not answer. Set apart by the serif and
+   the gold rather than by another button — it is an offer, not a demand. */
+.cw-advisor{
+  display:inline-block;margin-top:.55rem;
+  font-family:var(--serif);font-style:italic;font-size:.95rem;
+  color:var(--gold);border-bottom:1px solid var(--gold-faint);padding-bottom:.1rem;
+  transition:color .25s ease,border-color .25s ease;
+}
+.cw-advisor:hover{color:var(--navy);border-bottom-color:var(--navy)}
+/* ---- Suggested questions ----
+   Bubbles the visitor can send, ranged to their own side of the thread so the
+   gesture reads as picking something to say. No rules, no full-width rows: a
+   question that has been asked simply leaves the tray. */
+.cw-suggest{display:flex;flex-direction:column;align-items:flex-end;gap:.45rem;margin-top:.25rem}
+/* Secondary once the conversation has started — see the note at the element. */
+.cw-suggest.is-secondary{margin-top:.9rem;opacity:.72}
+.cw-suggest.is-secondary .cw-sugg{font-size:.85rem;padding:.45rem .8rem}
+.cw-suggest.is-secondary:hover,.cw-suggest.is-secondary:focus-within{opacity:1}
+/* The bubble still hugs the visitor's side of the thread, but its words are
+   set left: ranged right, a wrapped question dropped its tail toward the right
+   edge and the second line no longer began under the first. Widened a little
+   too — at 88% the column was narrow enough to break questions that fit
+   comfortably otherwise, which made the tray taller than it needed to be. The
+   body's own padding still holds the side margin. */
+.cw-sugg{
+  max-width:94%;text-align:left;cursor:pointer;
+  padding:.55rem .9rem;border-radius:14px;border-bottom-right-radius:5px;
+  background:var(--paper);border:1px solid rgba(var(--depth-shade),.16);
+  font-family:var(--serif);font-size:.92rem;font-weight:400;line-height:1.35;
+  color:var(--ink);
+  transition:background .22s ease,border-color .22s ease,color .22s ease;
+}
+.cw-sugg:hover,.cw-sugg:focus-visible{
+  background:linear-gradient(150deg,#fbf6ea 0%,#f4eddd 100%);
+  border-color:var(--gold-faint);color:var(--navy);outline:none;
+}
+/* ---- Asking your own ----
+   Navy to match the header, so the panel is bracketed top and bottom; the
+   field itself keeps the recessed lighter ground it already had. */
+/* stretch, not center: it makes the send key take its height from the field
+   beside it rather than carrying a number of its own, so the two always read
+   as one control however the field's padding or type size is retuned. */
+.cw-foot{
+  flex:none;
+  display:flex;align-items:stretch;gap:.55rem;
+  padding:.75rem .8rem;background:var(--navy);
+}
+/* White, and pressed very slightly into the navy: shading gathers inside the
+   top-left lip, the bounce returns along the lower-right, and the rim is a
+   thin darkening rather than a drawn border. The same light direction as every
+   recessed field on the site, dialled down — it sits in a small dark bar and
+   would shout at the strength the Consult form uses. */
 .cw-foot input{
-  flex:1;border:none;padding:.9rem 1.1rem;font-family:var(--sans);font-weight:300;
-  font-size:.85rem;background:#fff;color:var(--ink);
+  flex:1;min-width:0;
+  border:1px solid rgba(11,23,48,.5);border-radius:9px;
+  padding:.62rem .8rem;font-family:var(--sans);font-weight:300;
+  font-size:.82rem;color:var(--navy);background:#fff;
+  box-shadow:
+    inset 2px 2px 4px rgba(11,23,48,.16),
+    inset -1px -1px 3px rgba(255,255,255,.9);
+  transition:box-shadow var(--emboss-ease),border-color var(--emboss-ease);
 }
-.cw-foot input:focus{outline:none}
-.cw-foot button{
-  background:var(--navy);color:var(--gold-bright);border:none;width:52px;
-  font-size:1.1rem;cursor:pointer;transition:background .3s;
+/* Subdued, so it reads as an example rather than as something already typed. */
+.cw-foot input::placeholder{color:var(--ink-mute);opacity:.7}
+.cw-foot input:focus{
+  outline:none;border-color:var(--gold);
+  box-shadow:
+    inset 3px 3px 5px rgba(11,23,48,.2),
+    inset -1px -1px 3px rgba(255,255,255,.9);
 }
-.cw-foot button:hover{background:var(--navy-glow)}
-.cw-wa{
-  display:block;text-align:center;font-size:.62rem;letter-spacing:.26em;text-transform:uppercase;
-  color:var(--gold);padding:.75rem;border-top:1px solid var(--line);background:var(--paper);
-  transition:color .3s;
+/* The field's opposite number: white, gold arrow, standing off the navy rather
+   than pressed into it — lit along the top-left lip with its shadow falling
+   down-right, the same light the field is lit by. No rim: the only gold on it
+   is the arrow, and the depth alone separates it from the navy. All four
+   corners eased — the sharp corner belongs to the panel, not to a control
+   inside it. */
+/* Height comes from the row — see .cw-foot's align-items:stretch. Only the
+   width is stated here, so it stays the narrower of the two. */
+.cw-send{
+  flex:none;width:44px;cursor:pointer;
+  border-radius:10px;
+  background:#fff;border:none;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:
+    inset 1px 1px 0 rgba(255,255,255,.9),
+    inset -1px -1px 0 rgba(90,68,26,.1),
+    1px 2px 4px rgba(0,0,0,.3);
+  transition:background .2s ease,box-shadow .2s ease;
 }
-.cw-wa:hover{color:var(--navy)}
+.cw-send span{
+  width:7px;height:7px;margin-left:-2px;
+  border-top:1.4px solid var(--gold);border-right:1.4px solid var(--gold);
+  transform:rotate(45deg);
+}
+.cw-send:hover{background:var(--ivory)}
+/* Pressed in for the length of the press, then back out. */
+.cw-send:active{
+  box-shadow:
+    inset 2px 2px 4px rgba(90,68,26,.28),
+    inset -1px -1px 2px rgba(255,255,255,.8);
+}
 
 .btn:focus-visible,a:focus-visible,button:focus-visible{outline:1px solid var(--gold);outline-offset:3px}
 
@@ -3210,3 +4134,163 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
   .drop{transition:none}
   .pg-track{scroll-behavior:auto}
 }
+
+/* ================================================================
+   COMING SOON — the temporary holding page for the secondary
+   catalogue destinations (src/components/ComingSoon.tsx)
+   ================================================================
+   The page is the supplied artwork and one line of type. Backdrop, ghosted
+   lockup and the "COMING SOON / STAY TUNED" wording are all inside the image
+   now rather than rebuilt in CSS — there is no second copy of any of it here
+   that could drift away from the picture. What is left to do is show the whole
+   image without cropping it, fill the screen around it without a seam, and keep
+   the advisor line clear at the foot.
+
+   The base colour is the artwork's own corner (#01081a), a good deal deeper
+   than --navy, so that even before the image paints there is no flash of a
+   lighter blue behind it. */
+.cs{
+  position:relative;overflow:hidden;
+  min-height:100vh;min-height:100dvh;
+  background:#01081a;
+  display:flex;align-items:center;justify-content:center;text-align:center;
+}
+/* ---- filling the screen around a square picture ----
+   The artwork is 1564x1588 and a screen never is, so showing all of it always
+   leaves bands somewhere: side bands on a wide desktop, deep top and bottom
+   bands on a phone. Cropping is not an option — cover would cut the crest off
+   a 16:9 laptop and slice "COMING SOON" in half on a phone — so the bands have
+   to be filled.
+
+   A flat colour cannot do it. The image carries a vignette, so its edge runs
+   from #01081a in the corners to #102544 at the top centre; any single value
+   would match somewhere and seam everywhere else. Blowing the same picture up
+   past the frame and blurring it takes the fill from the artwork itself, so
+   the join matches at every edge at every viewport shape, and what shows in
+   the bands is the artwork's own glow rather than a letterbox.
+
+   scale() beyond the cover, so the blur has real pixels to sample at the edges
+   instead of smearing the frame's own boundary inwards. */
+.cs-bleed{
+  position:absolute;inset:0;z-index:0;pointer-events:none;
+  background-position:center;background-size:cover;background-repeat:no-repeat;
+  filter:blur(46px);transform:scale(1.18);
+  opacity:.85;
+}
+/* The artwork itself: whole, centred, never cropped, never stretched. max-width
+   and max-height do the containing, so whichever of the two runs out first is
+   the one that limits it — width on a phone, height on a laptop. */
+.cs-head{
+  position:relative;z-index:1;
+  margin:0;line-height:0;
+  display:flex;align-items:center;justify-content:center;
+  max-width:100%;max-height:100%;
+}
+.cs-art{
+  display:block;width:auto;height:auto;
+  max-width:100%;max-height:100dvh;
+  object-fit:contain;
+}
+/* ---- and the join between the two ----
+   The bleed is a cover crop, so at the artwork's edge it is showing a
+   different part of the picture at a different brightness — close, but close
+   enough to read as a line rather than as nothing. Feathering the artwork's
+   own last few percent into it removes the boundary outright. Nothing is lost:
+   the region being faded is the empty vignette the artwork already has around
+   its content, well outside the crest, the wording and the plinth.
+
+   Only the axis that actually has bands is feathered, which is why this is two
+   queries rather than one mask doing both — a single-axis linear mask needs no
+   mask-composite, so there is no compositing behaviour to differ between
+   engines. The switch is the artwork's own ratio: taller viewport, bands top
+   and bottom; wider viewport, bands left and right. */
+@media (max-aspect-ratio: 1564/1588){
+  .cs-art{
+    -webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 7%,#000 93%,transparent 100%);
+            mask-image:linear-gradient(to bottom,transparent 0,#000 7%,#000 93%,transparent 100%);
+  }
+}
+@media (min-aspect-ratio: 1564/1588){
+  .cs-art{
+    -webkit-mask-image:linear-gradient(to right,transparent 0,#000 7%,#000 93%,transparent 100%);
+            mask-image:linear-gradient(to right,transparent 0,#000 7%,#000 93%,transparent 100%);
+  }
+}
+/* Pinned to the foot of the screen rather than carried at the end of the
+   column, so the message above keeps the true centre to itself. Small, and
+   meant to stay small — this is a concierge aside, not a call to action. */
+/* Centred by auto margins between left:0 and right:0, NOT by left:50% and a
+   -50% transform. An absolutely positioned box is shrink-to-fit, and its
+   "available width" is measured from its own left edge to the containing
+   block's right edge — so left:50% told it that it had half the screen, and it
+   sized itself to the widest unbreakable word instead of to its max-width.
+   That was what forced the sentence onto two lines at 1440px, where there was
+   room for it three times over. Anchoring both edges gives it the full measure
+   to shrink inside. */
+.cs-foot{
+  position:absolute;z-index:1;left:0;right:0;
+  bottom:clamp(1.6rem,4.5vh,3rem);
+  margin:0 auto;max-width:min(93vw,46rem);
+  font-family:var(--sans);font-weight:200;
+  font-size:clamp(.58rem,1.35vw,.72rem);letter-spacing:.05em;line-height:1.75;
+  color:rgba(251,249,244,.5);
+}
+/* One line wherever it fits, and one honest break where it does not. Each half
+   is unbreakable, so the only place the sentence can divide is between the
+   question and the offer — which is the division the line is already written
+   around. Left to itself it broke mid-phrase ("…Speak with a Cl / ient
+   Advisor…" at 1440, where there was room for the whole thing twice over).
+   It holds a single line from about 390px up; below that the second line is
+   always the offer, never a fragment of it. */
+.cs-foot-ask,.cs-foot a{white-space:nowrap}
+/* The question stays quiet; only the offer is lit. */
+.cs-foot-ask{color:rgba(251,249,244,.5)}
+/* Gold and live, and nothing else — no rule, no box. The underline that used to
+   sit here read as a link in a footer; without it the line reads as one
+   sentence in two voices, which is what makes it feel like assistance rather
+   than a button. It still lifts to white under the hand, so the affordance is
+   there for anyone looking for it.
+   It is the site's one shared wa.me link (src/lib/social.ts) — the same number
+   and pre-filled opener the Concierge, the contact panel and the footer already
+   open. */
+.cs-foot a{
+  color:var(--gold-bright);text-decoration:none;
+  transition:color .3s ease;
+}
+.cs-foot a:hover,.cs-foot a:focus-visible{color:#fff}
+.cs-foot a:focus-visible{outline:1px solid var(--gold-bright);outline-offset:4px}
+/* ---- room for the Concierge, on the screens where it needs it ----
+   The launcher is fixed in this same bottom-right corner and stays there to the
+   foot of every page. On a wide screen that is no contest: the advisor line is
+   centred and 400px of it sits nowhere near the button. But the line's width
+   barely changes below 687px while the screen keeps narrowing, so from about
+   520px down its right end runs under the button — 46px of it at 390, straight
+   through "WhatsApp".
+   The line steps up over the button rather than the button moving: the
+   Concierge is a persistent control with a fixed home, and this is one page's
+   footnote. It is still the last thing on the screen, just clear of it. */
+@media(max-width:560px){
+  .cs-foot{bottom:calc(clamp(1.6rem,4.5vh,3rem) + 4.9rem)}
+}
+/* ---- the header, over the holding page ----
+   Presentation only. The bar keeps its height, its padding, its logo size, its
+   icon sizes and its --sk-hdr; it simply stops painting itself white, exactly
+   as it already declines to over the hero, so the navy runs unbroken from the
+   top edge and the watermark can run under it.
+
+   The wordmark is back. It was stood down while this page carried its own
+   lockup near the top and two of them sixty pixels apart read as a mistake;
+   the page has no logo of its own now, so the bar is once again the only mark
+   at the top of the screen — and it is the way home, which has to stay. */
+body.sk-holding header.scrolled{background:transparent;backdrop-filter:none;box-shadow:none}
+body.sk-holding header.scrolled::before{opacity:1}
+body.sk-holding header.scrolled .icon-btn{color:rgba(251,249,244,.92)}
+body.sk-holding header.scrolled .icon-btn:hover{color:var(--gold-bright)}
+/* The wordmark, in white with the icons. The bar carries .scrolled on this
+   page — there is no hero for it to measure itself against — so the logo was
+   still taking its dark-on-white filter (brightness .5) while the bar behind
+   it had already gone transparent over navy. It came out ink on ink and all
+   but disappeared. This is the same knock-out the logo already uses over the
+   hero, so the two states of the header agree: white mark, ivory icons,
+   nothing painted behind either. */
+body.sk-holding header.scrolled .brand-logo{filter:brightness(0) invert(1)}

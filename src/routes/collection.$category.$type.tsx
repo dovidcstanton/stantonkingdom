@@ -1,7 +1,13 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 
 import { CollectionView } from "@/components/CollectionView";
-import { categoryFromSlug, typeFromSlug, validateCollectionSearch } from "@/lib/catalog";
+import { ComingSoon } from "@/components/ComingSoon";
+import {
+  CATALOGUE_LIVE,
+  categoryFromSlug,
+  typeFromSlug,
+  validateCollectionSearch,
+} from "@/lib/catalog";
 
 export const Route = createFileRoute("/collection/$category/$type")({
   validateSearch: validateCollectionSearch,
@@ -33,5 +39,6 @@ export const Route = createFileRoute("/collection/$category/$type")({
 function CategoryType() {
   const { category, type } = Route.useLoaderData();
   const { style } = Route.useSearch();
+  if (!CATALOGUE_LIVE) return <ComingSoon />;
   return <CollectionView category={category} type={type} style={style ?? null} />;
 }
