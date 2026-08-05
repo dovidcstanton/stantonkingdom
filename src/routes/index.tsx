@@ -7,6 +7,8 @@ import phoneIconUrl from "@/assets/icon-phone-mask.png";
 import { WHATSAPP_URL } from "@/lib/social";
 /* Shared with The Kingdom Concierge — see src/lib/faq.ts. */
 import { FAQ } from "@/lib/faq";
+import { HONEYPOT_FIELD, TIMESTAMP_FIELD } from "@/lib/inquiry";
+import { submitInquiry } from "@/lib/inquiry.server";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -897,6 +899,72 @@ function HomePage() {
   const navigate = useNavigate();
   const formRef = useRef<HTMLFormElement>(null);
 
+  /* ---- Submitting an enquiry ----
+     Four states, and the transitions between them are the whole of the
+     behaviour: idle -> sending -> sent, or idle -> sending -> error -> idle.
+
+     "sending" is what prevents a double submission. It disables the button and
+     is checked at the top of the handler, so neither a second click nor a
+     second Enter can start a second request — a duplicate enquiry means the
+     client gets two confirmations and an advisor cannot tell whether they
+     wrote twice.
+
+     On failure NOTHING is reset. The form is never re-rendered from scratch,
+     the fields are uncontrolled DOM inputs, and the file input is left alone,
+     so every answer the visitor typed is still exactly where they left it and
+     the only thing that changed is the appearance of a line of text. Losing a
+     long message to a network blip is the fastest way to lose the enquiry
+     entirely. */
+  type SubmitStatus = "idle" | "sending" | "sent" | "error";
+  const [submitStatus, setSubmitStatus] = useState<SubmitStatus>("idle");
+  /* Stamped once, when the form is first mounted. The server compares it with
+     the moment of arrival: a form completed in under three seconds was not
+     completed by a person. See checkNotSpam in src/lib/inquiry.ts. */
+  const formRenderedAt = useRef(Date.now());
+
+  const onInquirySubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (submitStatus === "sending") return;
+
+    const form = e.currentTarget;
+    // The browser's own required-field checking still runs first and is still
+    // the only thing a visitor sees for an empty field — this changes nothing
+    // about that, it just refuses to proceed past it.
+    if (!form.reportValidity()) return;
+
+    setSubmitStatus("sending");
+    const payload = new FormData(form);
+    payload.set(TIMESTAMP_FIELD, String(formRenderedAt.current));
+    payload.set("source", "consult");
+    payload.set("page_url", window.location.href);
+
+    try {
+      const res = await submitInquiry({ data: payload });
+      if (res.ok) {
+        /* The collapse animates between two measured heights — max-height
+           can only transition length to length, never auto to auto — so the
+           numbers are frozen HERE, after the server has confirmed and
+           before the class flips. h0 is the form as it stands; h1 is the
+           card's own height, real even now because visibility:hidden keeps
+           layout. Reading offsetHeight commits h0 as the starting value in
+           this frame, so the flip to .acq-sent has something to animate
+           from. Failure never reaches this branch: the error state remains
+           exactly as it was. */
+        const card = form.querySelector<HTMLElement>(".acq-done-card");
+        if (card) {
+          form.style.setProperty("--acq-h0", `${form.offsetHeight}px`);
+          form.style.setProperty("--acq-h1", `${card.offsetHeight}px`);
+          void form.offsetHeight;
+        }
+        setSubmitStatus("sent");
+      } else {
+        setSubmitStatus("error");
+      }
+    } catch {
+      setSubmitStatus("error");
+    }
+  };
+
   // ============ Hero scroll choreography (tunable) ============
   // Track = 400vh → 300vh of scroll = ~3 viewport "strokes" on mobile.
   // Reveals overlap in staggered windows; everything settles by p≈0.85
@@ -1398,16 +1466,45 @@ function HomePage() {
           </button>
         </div>
 
+        {/* The panel stays. Whatever state the enquiry is in, this is the same
+            element in the same place in the page — the success message is not
+            a new screen, it is this form's own content replaced. That is why
+            `hidden` still keys off meetOpen alone and the status only ever
+            changes what is inside. */}
         <form
           ref={formRef}
-          className="acq-form"
+          className={"acq-form acq-" + submitStatus}
           hidden={!meetOpen}
-          action="https://formsubmit.co/sales@stantonkingdom.com"
           method="POST"
           encType="multipart/form-data"
+          onSubmit={onInquirySubmit}
+          noValidate={false}
         >
-          <input type="hidden" name="_subject" value="New inquiry — stantonkingdom.com" />
-          <input type="hidden" name="_captcha" value="false" />
+          {/* Not a real field. A person never sees it and never fills it; a bot
+              reads the HTML, finds an input with a plausible name, and fills
+              everything it finds. Anything arriving with this populated was not
+              typed by a human, and is rejected server-side.
+              Hidden with position/opacity rather than `hidden` or
+              display:none, because the simpler the concealment the more bots
+              detect it — and tabindex/autocomplete keep it away from anyone
+              navigating by keyboard or password manager.
+              readOnly is the fix for the one "bot" this trap must never catch:
+              the visitor's own browser. Chrome ignores autocomplete="off" and
+              was writing the saved company name into this field on page load,
+              which made every hand-typed enquiry look like spam. Autofill
+              never writes to a read-only input; the bots this exists for
+              fabricate the POST from parsed HTML and never notice. */}
+          <div className="acq-hp" aria-hidden="true">
+            <label htmlFor={HONEYPOT_FIELD}>Company website</label>
+            <input
+              id={HONEYPOT_FIELD}
+              type="text"
+              name={HONEYPOT_FIELD}
+              tabIndex={-1}
+              autoComplete="off"
+              readOnly
+            />
+          </div>
           <div className="f-row">
             <label>First Name<input type="text" name="first_name" required /></label>
             <label>Last Name<input type="text" name="last_name" required /></label>
@@ -1480,7 +1577,36 @@ function HomePage() {
               onChange={(e) => setFileName(e.currentTarget.files?.[0]?.name ?? "")}
             />
           </label>
-          <button type="submit" className="btn btn-gold">Start Your Story</button>
+          {/* Discreet, and only ever where the eye already is — directly above
+              the button that just failed. It says what to do next rather than
+              what went wrong internally; the reason is in the Worker log. */}
+          {submitStatus === "error" && (
+            <p className="acq-error" role="alert">
+              That didn&rsquo;t send. Please try again — or write to us at{" "}
+              <a href="mailto:sales@stantonkingdom.com">sales@stantonkingdom.com</a>.
+            </p>
+          )}
+          <button type="submit" className="btn btn-gold" disabled={submitStatus === "sending"}>
+            {submitStatus === "sending" ? "Sending…" : "Start Your Story"}
+          </button>
+
+          {/* The success state. It lives INSIDE the form and is positioned over
+              it, so the panel does not resize, does not jump, and does not
+              close — the fields fade under it and this fades in over them.
+              aria-live so it is announced rather than silently swapped.
+
+              The card is one of the form's own fields, expanded: same face,
+              same rim, same recess — see .acq-done-card. The heading is the
+              section's own "Start <em>Your Story.</em>" construction — same
+              classes, same em, resized through the .uni-h scoping idiom — and
+              the same two voices: navy roman, gold italic. "Message Received."
+              answers "Start Your Story." in its own typography. */}
+          <div className="acq-done" role="status" aria-live="polite">
+            <div className="acq-done-card">
+              <p className="acq-done-h serif canela uni-h">Message <em>Received.</em></p>
+              <p className="acq-done-p">A client advisor will be in touch with you shortly.</p>
+            </div>
+          </div>
         </form>
       </section>
       <SiteFooter />

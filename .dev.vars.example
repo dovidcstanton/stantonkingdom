@@ -18,3 +18,39 @@
 
 SHOPIFY_DOMAIN=stanton-kingdom-atelier-dyc8z.myshopify.com
 SHOPIFY_STOREFRONT_TOKEN=
+
+
+# ---------------------------------------------------------------------------
+# Enquiry email (Start Your Story + piece enquiries)
+# ---------------------------------------------------------------------------
+#
+# The consultation form sends two emails per submission: a branded confirmation
+# to the client, and the enquiry itself to the house with Reply-To set to the
+# client. Both go through Resend.
+#
+# In production these are Cloudflare Worker secrets, NOT this file:
+#
+#   npx wrangler secret put RESEND_API_KEY      --name <worker>
+#   npx wrangler secret put INQUIRY_FROM_EMAIL  --name <worker>
+#   npx wrangler secret put INQUIRY_TO_EMAIL    --name <worker>
+#   npx wrangler secret put PUBLIC_SITE_URL     --name <worker>
+#
+# With any of them missing the form does not silently swallow an enquiry: the
+# endpoint reports failure, the visitor sees the error state, and their answers
+# stay in the fields.
+
+# Resend API key. Create at https://resend.com -> API Keys. Sending permission
+# is enough; it does not need full access.
+RESEND_API_KEY=
+
+# Who the emails come FROM. The domain must be verified in Resend first.
+# A subdomain is strongly preferred over the apex — see EMAIL-SETUP.md.
+INQUIRY_FROM_EMAIL=Stanton Kingdom <no-reply@send.stantonkingdom.com>
+
+# Where enquiries land. This is the inbox David actually reads.
+INQUIRY_TO_EMAIL=sales@stantonkingdom.com
+
+# Absolute origin, no trailing slash. The wordmark in each email is loaded from
+# here, so it must be publicly reachable — on the preview Worker this is the
+# workers.dev URL, and on launch it becomes https://stantonkingdom.com
+PUBLIC_SITE_URL=https://stantonkingdom-launch-v1.stanton1.workers.dev

@@ -2292,6 +2292,154 @@ footer{position:sticky;bottom:0;z-index:0}
 .acq-form{
   width:100%;max-width:calc(760px + 10vw);min-width:0;padding:0 5vw;
   margin:3rem auto 0;text-align:left;
+  /* The success message is laid over the fields rather than replacing them in
+     the flow — see .acq-done. This is the frame it is positioned against. */
+  position:relative;
+  /* The collapse animates between two measured heights — max-height can only
+     transition length to length, never auto to auto — so the submit handler
+     freezes the form's current height into --acq-h0 the moment the server
+     confirms, and .acq-sent below hands the box its destination. Until that
+     property exists this resolves to none and the rule is inert. */
+  max-height:var(--acq-h0,none);
+}
+
+/* ---- Submitting ----
+   Three states, and between them they must never move the panel. The section
+   stays open, the form keeps its box, and the only things that change are what
+   is legible and what is clickable. A form that collapses or resizes at the
+   moment of submission reads as an error even when it succeeded. */
+
+/* The honeypot. Concealed with geometry rather than display:none or [hidden],
+   both of which the better bots check for and skip; this is off-screen to a
+   person and fully present to anything parsing the DOM. Kept out of the tab
+   order and of autofill's reach so it cannot be filled by accident. */
+.acq-hp{
+  position:absolute;left:-9999px;top:auto;width:1px;height:1px;
+  overflow:hidden;opacity:0;pointer-events:none;
+}
+
+/* While in flight: the fields cool and stop accepting input. pointer-events is
+   the guard on the controls; the button carries its own `disabled`, which is
+   what actually prevents a second submission. */
+.acq-form.acq-sending{cursor:progress}
+.acq-form.acq-sending > *:not(.acq-done){opacity:.55;pointer-events:none}
+.acq-form.acq-sending .btn{opacity:1}
+.acq-form .btn[disabled]{cursor:progress;opacity:.72}
+
+/* The failure line. Deliberately quiet — this is a transient network problem,
+   not a scolding — and it sits immediately above the button, so the eye is
+   already there. No colour beyond the site's own ink and gold. */
+.acq-error{
+  margin:0 0 1rem;font-family:var(--sans);font-size:.82rem;line-height:1.6;
+  color:var(--ink);text-indent:.7rem;
+}
+.acq-error a{color:var(--gold);text-decoration:underline;text-underline-offset:2px}
+
+/* ---- Received ----
+   Absolutely positioned over the form's own box, so the panel's height is
+   still set by the fields underneath and nothing reflows at the moment of
+   success. Inert and invisible until the form says otherwise.
+   padding:inherit, not a copy of the form's gutter: .acq-form narrows its own
+   padding twice on the way down to a phone, and inheriting tracks all three
+   values for free — the card's edges land exactly where the fields' edges
+   were, at every width. */
+.acq-done{
+  position:absolute;inset:0;display:flex;
+  align-items:center;justify-content:center;
+  padding:inherit;
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .5s ease,visibility 0s linear .5s;
+}
+/* ---- The transformation ----
+   One class, one ~2s choreography, and the server's confirmation is the only
+   thing that applies it. Four movements, overlapped so nothing ever cuts:
+
+     0s     the fields let go — fade and drift gently upward together
+     .45s   the box itself starts to close, riding max-height from the
+            measured form height down to the measured card height
+     .35s   the card's surface is already materialising under the fading
+            fields, so the shrinking box is visibly becoming the card
+     1.35s  only once the container has substantially formed does the
+            wording arrive
+   ~1.9s   settled.
+
+   overflow:hidden only here: while idle the dropdowns need to paint past
+   the form's box, and clipping is only wanted while the box is closing. */
+.acq-form.acq-sent{
+  max-height:var(--acq-h1,none);
+  overflow:hidden;
+  transition:max-height 1.05s cubic-bezier(.45,.05,.15,1) .45s;
+}
+.acq-form.acq-sent .acq-done{
+  opacity:1;visibility:visible;
+  transition:opacity .7s ease .35s,visibility 0s linear .35s;
+}
+/* The fields go first — a small upward drift with the fade so they read as
+   closing into the box rather than switching off. Vertical only; no
+   horizontal distortion. */
+.acq-form.acq-sent > *:not(.acq-done){
+  opacity:0;transform:translateY(-10px);pointer-events:none;
+  transition:opacity .55s ease,transform .7s cubic-bezier(.4,0,.2,1);
+}
+/* One of the form's own fields, expanded to hold the confirmation. Face, rim,
+   radius and pressed-in depth are the exact values of the input rule above —
+   nothing raised, nothing darker, no new card language. The translucent face
+   also carries the crossfade: while the fields are still fading they show
+   faintly through it, so the transformation reads as the form becoming this
+   box rather than a panel being swapped.
+   Sized by its own content rather than stretched to the form's full height —
+   the frame above centres it in the panel's space, so on a phone it reads as
+   a card, not as a second full-screen section. The padding is the only lever:
+   tight on a phone, a little more generous where there is room. */
+.acq-done-card{
+  /* The form's own footprint, inherited rather than restated: the overlay
+     carries the form's responsive gutter via padding:inherit, so width:100%
+     of it lands the card's edges exactly where the fields' edges were — the
+     same measure, the same centring, at every breakpoint. No hard-coded
+     width, and no height either: the box is its padding plus two lines of
+     type, which is what keeps it a card and not a panel. */
+  width:100%;min-width:0;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;text-align:center;gap:.55rem;
+  padding:clamp(1.45rem,4.2vw,2.35rem) clamp(1.5rem,5vw,2.8rem);
+  background:rgba(255,255,255,.4);
+  border:1px solid rgba(var(--depth-shade),.09);border-radius:9px;
+  box-shadow:
+    inset 2px 2px 5px rgba(var(--depth-shade),.15),
+    inset -2px -2px 5px rgba(255,255,255,.45);
+}
+/* The section heading's own setting — Cormorant via .uni-h, the same 700, the
+   same 1.22 leading — stepped down through the .uni-h scoping idiom the hero
+   and FAQ headings already use. The em is the "Your Story." construction,
+   gold italic against the navy roman, so the card answers the heading above
+   it in the heading's own two voices. */
+.acq-done-h{margin:0;color:var(--navy);font-weight:700}
+.acq-done-h.uni-h{font-size:clamp(2rem,5vw,3rem)!important}
+.acq-done-h em{display:inline-block;font-style:italic;font-weight:inherit;color:var(--gold)}
+/* The supporting line borrows the voice of an answered field — the same face,
+   weight and ink a chosen option shows inside the dropdowns — so the card
+   reads as the form speaking, quietly, one size down. */
+.acq-done-p{
+  margin:0;font-family:var(--sans);font-weight:300;font-size:.78rem;
+  line-height:1.6;letter-spacing:.03em;color:var(--ink);max-width:44ch;
+}
+/* The wording is the last thing to arrive — the container forms first, the
+   words settle into it. Base opacity lives here so the reveal has something
+   to animate from. */
+.acq-done-h,.acq-done-p{opacity:0}
+.acq-form.acq-sent .acq-done-h,
+.acq-form.acq-sent .acq-done-p{
+  opacity:1;transition:opacity .55s ease 1.35s;
+}
+/* Reduced motion: the same states, arrived at immediately — no collapse, no
+   drift, no staged reveal. The delays are zeroed as well as the durations,
+   or "instant" would still take 1.35 seconds to start. */
+@media(prefers-reduced-motion:reduce){
+  .acq-form.acq-sent,
+  .acq-done,
+  .acq-form.acq-sent > *:not(.acq-done),
+  .acq-form.acq-sent .acq-done-h,
+  .acq-form.acq-sent .acq-done-p{transition-duration:.01ms;transition-delay:0s}
 }
 /* Each caption and the control under it are one unit, and the spacing says so:
    a short drop from the caption to its own field, then a wider one before the

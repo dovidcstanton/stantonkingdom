@@ -1,21 +1,27 @@
 /** The enquiry route to a piece, for anything not sold straight from the cart.
  *
- *  Posts to the same formsubmit.co endpoint as the Start Your Story form at the
- *  foot of the home page, so every lead lands in one inbox rather than David
- *  having to watch two. It uses the AJAX endpoint rather than a plain form POST
- *  so a client is never navigated away from the piece they were looking at. */
+ *  Goes to the same endpoint as the Start Your Story form at the foot of the
+ *  home page, so every lead lands in one inbox rather than David having to
+ *  watch two — and so there is one place that validates an enquiry, one pair
+ *  of email templates and one sending path.
+ *
+ *  It was the second of the two forms posting a visitor's name, email and
+ *  phone number to formsubmit.co; that is gone. It is still an XHR rather than
+ *  a form POST, so a client is never navigated away from the piece they were
+ *  looking at. */
 
 import { useEffect, useRef, useState } from "react";
 
 import { money, type SkProduct } from "@/lib/catalog";
-
-const ENDPOINT = "https://formsubmit.co/ajax/sales@stantonkingdom.com";
+import { HONEYPOT_FIELD, TIMESTAMP_FIELD } from "@/lib/inquiry";
+import { submitInquiry } from "@/lib/inquiry.server";
 
 type Status = "idle" | "sending" | "sent" | "error";
 
 export function InquiryDialog({ piece, onClose }: { piece: SkProduct; onClose: () => void }) {
   const [status, setStatus] = useState<Status>("idle");
   const firstFieldRef = useRef<HTMLInputElement>(null);
+  const renderedAt = useRef(Date.now());
 
   useEffect(() => {
     firstFieldRef.current?.focus();
@@ -28,24 +34,23 @@ export function InquiryDialog({ piece, onClose }: { piece: SkProduct; onClose: (
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    // The same double-submit guard the Consult form uses: a second click while
+    // the first request is in flight would send a second enquiry.
+    if (status === "sending") return;
     const form = e.currentTarget;
-    const fields = Object.fromEntries(new FormData(form).entries());
+    if (!form.reportValidity()) return;
+
     setStatus("sending");
+    const payload = new FormData(form);
+    payload.set(TIMESTAMP_FIELD, String(renderedAt.current));
+    payload.set("source", "piece");
+    payload.set("piece_name", piece.name);
+    payload.set("piece_handle", piece.handle);
+    payload.set("piece_price", money(piece.price, piece.currency));
+    payload.set("page_url", typeof window !== "undefined" ? window.location.href : "");
 
     try {
-      const res = await fetch(ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          ...fields,
-          _subject: `Enquiry — ${piece.name}`,
-          _captcha: "false",
-          Piece: piece.name,
-          Reference: piece.handle,
-          "Guide price": money(piece.price, piece.currency),
-          Page: typeof window !== "undefined" ? window.location.href : "",
-        }),
-      });
+      const res = await submitInquiry({ data: payload });
       setStatus(res.ok ? "sent" : "error");
     } catch {
       setStatus("error");
@@ -92,6 +97,21 @@ export function InquiryDialog({ piece, onClose }: { piece: SkProduct; onClose: (
             </p>
 
             <form className="inq-form" onSubmit={submit}>
+              {/* See the note on the Consult form's honeypot — same field, same
+                  server-side check, same reason it is hidden with geometry
+                  rather than display:none, and same readOnly so the visitor's
+                  own autofill can never populate it and flag them as a bot. */}
+              <div className="acq-hp" aria-hidden="true">
+                <label htmlFor={`inq-${HONEYPOT_FIELD}`}>Company website</label>
+                <input
+                  id={`inq-${HONEYPOT_FIELD}`}
+                  type="text"
+                  name={HONEYPOT_FIELD}
+                  tabIndex={-1}
+                  autoComplete="off"
+                  readOnly
+                />
+              </div>
               <div className="f-row">
                 <label>
                   First Name

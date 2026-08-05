@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
-    "deploy:dev": "npm run build && wrangler deploy --config .output/server/wrangler.json --name stantonkingdom-dev",
+    "deploy:dev": "npm run build && npx wrangler deploy --config .output/server/wrangler.json --name stantonkingdom-dev",
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
