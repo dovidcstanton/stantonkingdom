@@ -1084,25 +1084,45 @@ body.contact-panel-open .cw{
   min-height:100vh;position:sticky;top:0;height:100vh;display:flex;align-items:flex-end;
   overflow:hidden;color:var(--ivory);
 }
+/* The photo pans by TRANSFORM, not background-position. background-position
+   is a paint property: every scroll frame the browser re-rasterised the full
+   viewport on the main thread, which was the single biggest source of scroll
+   jank on phones. A transform slides the already-painted layer on the
+   compositor thread instead — no repaint, and it stays smooth even while the
+   main thread is busy. .hero-bg keeps only the navy gradient underlay;
+   .hero-bg-pan carries the photo. */
 .hero-bg{
-  position:absolute;inset:0;
+  position:absolute;inset:0;overflow:hidden;
   background-color:var(--navy);
-  background-image:
-    url('/hero-writing-original.jpg?v=20260722-hero-reset'),
-    radial-gradient(ellipse 90% 70% at 50% 120%,var(--navy-glow),var(--navy));
-  /* Width is driven directly so the photo always overflows the viewport and can
-     pan. 184vh is the image's width at the old 138vh height (4:3 source); the
-     118vw floor keeps it covering — and still pannable — on wide/ultrawide
-     screens, where height-derived sizing left navy exposed at both edges. */
-  background-size:max(184vh,118vw) auto,cover;
-  background-position:var(--bgx,16%) 68%,center;
+  background-image:radial-gradient(ellipse 90% 70% at 50% 120%,var(--navy-glow),var(--navy));
+  background-size:cover;
+  background-position:center;
+}
+/* Width is driven directly so the photo always overflows the viewport and can
+   pan. 184vh is the image's width at the old 138vh height (4:3 source); the
+   118vw floor keeps it covering — and still pannable — on wide/ultrawide
+   screens, where height-derived sizing left navy exposed at both edges.
+   --bgx-p is the pan as a 0–1 fraction, and the calc replays exactly what
+   `background-position-x: P%` meant on the old oversized background: offset
+   the image by (container − image) × P. 100vw stands in for the container and
+   100% resolves to this element's own width, i.e. the image's. */
+.hero-bg-pan{
+  position:absolute;top:0;bottom:0;left:0;
+  width:max(184vh,118vw);
+  background-image:url('/hero-writing-original.jpg?v=20260722-hero-reset');
+  background-size:100% auto;
+  background-position:0 68%;
   background-repeat:no-repeat;
-  will-change:background-position;
+  transform:translateX(calc((100vw - 100%) * var(--bgx-p,.16)));
+  will-change:transform;
 }
 .hero-navy-handoff{
   position:absolute;inset:0;pointer-events:none;
   background:linear-gradient(180deg,transparent 0%,transparent 45%,rgba(11,23,48,.55) 78%,var(--navy) 100%);
   opacity:var(--pan-p,0);
+  /* Its opacity changes every scroll frame; on its own compositor layer that
+     is a blend-factor update, without it a full-viewport gradient repaint. */
+  will-change:opacity;
 }
 .hero-v-notch{
   display:none;
@@ -1221,13 +1241,15 @@ body.contact-panel-open .cw{
 @media (prefers-reduced-motion: reduce){
   .hero-track{height:auto}
   .hero{position:relative;height:100vh}
-  .hero-bg{background-position:52% 58%,center}
+  .hero-bg{--bgx-p:.52}
+  .hero-bg-pan{background-position:0 58%}
   .hero-main{opacity:1;transform:none;-webkit-mask-image:none;mask-image:none}
   .hero-btn-1,.hero-btn-2{opacity:1;transform:none}
   .hero-navy-handoff{display:none}
 }
-/* Mobile: keep the wide image panning (width overflows viewport so --bgx can slide),
-   lift content well above center, and keep the V-divider tip visible. */
+/* Mobile: keep the wide image panning (width overflows viewport so the
+   transform driven by --bgx-p can slide it), lift content well above center,
+   and keep the V-divider tip visible. */
 /* Bottom-anchored, exactly as desktop above and mobile below. This band used
    to centre the copy and nudge it down 28%, which left tablets — and only
    tablets — with the writing floating mid-frame while both neighbouring
@@ -1235,7 +1257,11 @@ body.contact-panel-open .cw{
    with that treatment (they existed to keep the V-notch showing), so they go
    too: full height with the notch hidden, the same as the phone layout. */
 @media (max-width: 899px){
-  .hero-bg{background-size:max(176vh,118vw) auto,cover;background-position:var(--bgx,24%) 88%,center}
+  /* The pan default lives on .hero-bg (the parent) so the JS-written inline
+     value on the same element overrides it; declared on .hero-bg-pan itself
+     it would beat the inherited inline value and pin the pan at 24%. */
+  .hero-bg{--bgx-p:.24}
+  .hero-bg-pan{width:max(176vh,118vw);background-position:0 88%}
   .hero{align-items:flex-end;height:100vh;min-height:100vh;overflow:hidden}
   .hero-bg,.hero-veil,.hero-navy-handoff{overflow:hidden}
   .hero-inner{padding:0 6vw 3.4rem;transform:none;gap:clamp(1rem,2.4vw,1.3rem)}
@@ -1244,9 +1270,14 @@ body.contact-panel-open .cw{
 
 
 /* ================ BELIEF ================ */
+/* Grows by scaleX, not width: width is a layout property, so animating it
+   reflowed and repainted on every scroll frame, on every page. The transform
+   and its transition both run on the compositor. */
 .scroll-progress{
-  position:fixed;top:0;left:0;height:3px;width:0%;
-  background:var(--gold);z-index:400;transition:width .08s linear;
+  position:fixed;top:0;left:0;height:3px;width:100%;
+  transform:scaleX(0);transform-origin:0 50%;
+  background:var(--gold);z-index:400;transition:transform .08s linear;
+  will-change:transform;
 }
 .v-divider{width:100%;height:46px;display:block;line-height:0}
 .v-divider svg{width:100%;height:100%;display:block}

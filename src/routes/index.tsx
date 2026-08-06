@@ -987,92 +987,12 @@ function HomePage() {
   const heroBgRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLElement>(null);
   const heroHandoffRef = useRef<HTMLDivElement>(null);
-  const lastBgxRef = useRef<number>(-1);
 
-  // Two-way, scroll-linked hero: everything below is a pure function of the
-  // current scroll position, computed fresh on every scroll event in either
-  // direction. There is no "play once and freeze" state — scrolling back up
-  // simply runs the same choreography in reverse, exactly like scrolling down
-  // runs it forward. Nothing here ever moves the scroll position itself.
-  useEffect(() => {
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    const getPanRange = () => window.matchMedia("(max-width: 899px)").matches
-      ? { start: PAN.mobileStart, end: PAN.mobileEnd }
-      : { start: PAN.desktopStart, end: PAN.desktopEnd };
-
-    if (reduced) {
-      const { end } = getPanRange();
-      heroBgRef.current?.style.setProperty("--bgx", `${end}%`);
-      heroHandoffRef.current?.style.setProperty("--pan-p", "1");
-      const hero = heroRef.current;
-      if (hero) {
-        hero.style.setProperty("--l2", "1");
-        hero.style.setProperty("--b1", "1");
-        hero.style.setProperty("--b2", "1");
-        hero.classList.add("hero-btn1-ready", "hero-btn2-ready");
-      }
-      return;
-    }
-
-    let raf = 0;
-    // easeInOutSine — gentler than the previous quadratic
-    const easeInOutSine = (t: number) => -(Math.cos(Math.PI * t) - 1) / 2;
-    // easeOutQuint — soft settle on reveals
-    const easeOutQuint = (t: number) => 1 - Math.pow(1 - t, 5);
-
-    const tick = () => {
-      raf = 0;
-      const track = heroTrackRef.current;
-      const hero = heroRef.current;
-      if (!track || !hero) return;
-      const rect = track.getBoundingClientRect();
-      const total = Math.max(1, track.offsetHeight - window.innerHeight);
-      const p = Math.min(1, Math.max(0, -rect.top / total));
-
-      // Pan — skip DOM write if change is < 0.25% (no visible diff, avoids paints)
-      const { start, end } = getPanRange();
-      const bgx = start + easeInOutSine(p) * (end - start);
-      if (Math.abs(bgx - lastBgxRef.current) >= 0.25 || p >= 1 || p <= 0) {
-        heroBgRef.current?.style.setProperty("--bgx", `${bgx}%`);
-        lastBgxRef.current = bgx;
-      }
-
-      // Handoff — extended tail (last 35%) for a continuous darken into Belief
-      const handoff = Math.min(1, Math.max(0, (p - HANDOFF_START) / (1 - HANDOFF_START)));
-      heroHandoffRef.current?.style.setProperty("--pan-p", String(easeInOutSine(handoff)));
-
-      // Reveals — overlapping windows, easeOutQuint settle. Runs the same in
-      // both directions: scroll down and the text/buttons write themselves
-      // in; scroll back up and they erase themselves out, in sync with the
-      // image panning back.
-      const span = REVEAL_SPAN;
-      const l2 = Math.min(1, Math.max(0, (p - REVEAL.line2) / span));
-      const b1 = Math.min(1, Math.max(0, (p - REVEAL.btn1) / span));
-      const b2 = Math.min(1, Math.max(0, (p - REVEAL.btn2) / span));
-      hero.style.setProperty("--l2", String(easeOutQuint(l2)));
-      hero.style.setProperty("--b1", String(easeOutQuint(b1)));
-      hero.style.setProperty("--b2", String(easeOutQuint(b2)));
-      // CTAs only clickable once basically fully revealed, either direction.
-      // Each button becomes clickable independently, based on its own
-      // reveal progress — Start Your Story (b1) lands first and should be
-      // clickable before Discover the Kingdom (b2) has even appeared.
-      hero.classList.toggle("hero-btn1-ready", b1 > 0.5);
-      hero.classList.toggle("hero-btn2-ready", b2 > 0.5);
-    };
-    const onScroll = () => {
-      if (raf) return;
-      raf = requestAnimationFrame(tick);
-    };
-    tick();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, []);
+  // The hero's scroll choreography lives in ONE effect together with the
+  // Heritage/Philosophy duo below — see the combined effect after the duo's
+  // constants. Two separate scroll handlers meant the duo's measurement ran
+  // after the hero's style writes every frame, forcing the style engine to
+  // flush mid-frame, twice per frame, for the whole pinned stretch.
 
   // ============ Heritage/Philosophy immersive duo (tunable) ============
   // Pinned like the hero. Heritage slides in from the LEFT and settles dead
@@ -1122,35 +1042,129 @@ function HomePage() {
   const duoHeritageRef = useRef<HTMLElement>(null);
   const duoPhilRef = useRef<HTMLElement>(null);
 
+  // ============ Combined scroll choreography: hero + duo ============
+  // Two-way and scroll-linked: everything below is a pure function of the
+  // current scroll position, computed fresh on every scroll event in either
+  // direction. There is no "play once and freeze" state — scrolling back up
+  // simply runs the same choreography in reverse, exactly like scrolling down
+  // runs it forward. Nothing here ever moves the scroll position itself.
+  //
+  // One effect for both sections, for a reason that is invisible in either
+  // alone: with two scroll handlers, the duo's getBoundingClientRect ran
+  // after the hero's style writes in the same frame, so the style engine had
+  // to flush those writes mid-frame — every frame, for the whole pinned
+  // stretch. Here both rects are read first, then all writes happen.
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const hero = heroRef.current;
     const heritage = duoHeritageRef.current;
     const phil = duoPhilRef.current;
-    if (!heritage || !phil) return;
+
+    const getPanRange = () => window.matchMedia("(max-width: 899px)").matches
+      ? { start: PAN.mobileStart, end: PAN.mobileEnd }
+      : { start: PAN.desktopStart, end: PAN.desktopEnd };
 
     if (reduced) {
-      heritage.style.transform = "none";
-      phil.style.transform = "none";
+      const { end } = getPanRange();
+      heroBgRef.current?.style.setProperty("--bgx-p", String(end / 100));
+      heroHandoffRef.current?.style.setProperty("--pan-p", "1");
+      if (hero) {
+        hero.style.setProperty("--l2", "1");
+        hero.style.setProperty("--b1", "1");
+        hero.style.setProperty("--b2", "1");
+        hero.classList.add("hero-btn1-ready", "hero-btn2-ready");
+      }
+      if (heritage) heritage.style.transform = "none";
+      if (phil) phil.style.transform = "none";
       return;
     }
 
     const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
+    // easeInOutSine — gentler than the previous quadratic
+    const easeInOutSine = (t: number) => -(Math.cos(Math.PI * t) - 1) / 2;
+    // easeOutQuint — soft settle on reveals
+    const easeOutQuint = (t: number) => 1 - Math.pow(1 - t, 5);
+
+    // The viewport measure for both progress computations is the pinned
+    // hero's own offsetHeight, not window.innerHeight. The hero is 100vh —
+    // the LARGE viewport, the same unit both tracks are sized in — and 100vh
+    // does not change when a phone's browser toolbar collapses or returns,
+    // whereas innerHeight changes by the toolbar's height every single time.
+    // Progress computed against innerHeight jumped at each toolbar toggle
+    // (the pan and the panels visibly skipped mid-scroll); against
+    // offsetHeight it is a pure function of scroll position for the life of
+    // the page. Track heights only change with the viewport, so all of these
+    // are measured once and again on resize rather than re-read every frame.
+    let viewH = 1, heroTotal = 1, duoLead = 0, duoTotal = 1;
+    const measure = () => {
+      viewH = hero?.offsetHeight || window.innerHeight;
+      heroTotal = Math.max(1, (heroTrackRef.current?.offsetHeight ?? 0) - viewH);
+      duoLead = viewH * DUO_LEAD;
+      duoTotal = Math.max(1, (duoTrackRef.current?.offsetHeight ?? 0) - viewH + duoLead);
+    };
+
+    // Every write is guarded by the last value written: beyond both ends of
+    // each choreography — which is most of the page, plus the duo's two rest
+    // beats — every frame clamps to the same constants, and re-writing them
+    // only invalidated style for nothing.
+    let lastPan = "", lastHandoff = "", lastL2 = "", lastB1 = "", lastB2 = "";
+    let lastHerX = "", lastPhilX = "";
 
     let raf = 0;
     const tick = () => {
       raf = 0;
-      const track = duoTrackRef.current;
-      if (!track) return;
-      const rect = track.getBoundingClientRect();
-      const lead = window.innerHeight * DUO_LEAD;
-      const total = Math.max(1, track.offsetHeight - window.innerHeight + lead);
-      const p = clamp01((-rect.top + lead) / total);
+      const heroTrack = heroTrackRef.current;
+      const duoTrack = duoTrackRef.current;
+      if (!heroTrack || !hero || !duoTrack || !heritage || !phil) return;
+      // Reads first — both of them — then writes.
+      const heroRect = heroTrack.getBoundingClientRect();
+      const duoRect = duoTrack.getBoundingClientRect();
+
+      // ---- Hero: pan, handoff into Belief, staggered reveals ----
+      const hp = clamp01(-heroRect.top / heroTotal);
+      const { start, end } = getPanRange();
+      const pan = String((start + easeInOutSine(hp) * (end - start)) / 100);
+      if (pan !== lastPan) {
+        heroBgRef.current?.style.setProperty("--bgx-p", pan);
+        lastPan = pan;
+      }
+
+      // Handoff — extended tail (last 35%) for a continuous darken into Belief
+      const handoff = String(easeInOutSine(clamp01((hp - HANDOFF_START) / (1 - HANDOFF_START))));
+      if (handoff !== lastHandoff) {
+        heroHandoffRef.current?.style.setProperty("--pan-p", handoff);
+        lastHandoff = handoff;
+      }
+
+      // Reveals — overlapping windows, easeOutQuint settle. Runs the same in
+      // both directions: scroll down and the text/buttons write themselves
+      // in; scroll back up and they erase themselves out, in sync with the
+      // image panning back.
+      const span = REVEAL_SPAN;
+      const l2 = clamp01((hp - REVEAL.line2) / span);
+      const b1 = clamp01((hp - REVEAL.btn1) / span);
+      const b2 = clamp01((hp - REVEAL.btn2) / span);
+      const l2s = String(easeOutQuint(l2));
+      const b1s = String(easeOutQuint(b1));
+      const b2s = String(easeOutQuint(b2));
+      if (l2s !== lastL2) { hero.style.setProperty("--l2", l2s); lastL2 = l2s; }
+      if (b1s !== lastB1) { hero.style.setProperty("--b1", b1s); lastB1 = b1s; }
+      if (b2s !== lastB2) { hero.style.setProperty("--b2", b2s); lastB2 = b2s; }
+      // CTAs only clickable once basically fully revealed, either direction.
+      // Each button becomes clickable independently, based on its own
+      // reveal progress — Start Your Story (b1) lands first and should be
+      // clickable before Discover the Kingdom (b2) has even appeared.
+      hero.classList.toggle("hero-btn1-ready", b1 > 0.5);
+      hero.classList.toggle("hero-btn2-ready", b2 > 0.5);
+
+      // ---- Duo: Heritage across, Philosophy in from the right ----
+      const dp = clamp01((-duoRect.top + duoLead) / duoTotal);
 
       // How far into the pan we are, in screen-heights of scroll. Both legs
       // divide by the same DUO_LEG, which is what keeps Heritage arriving,
       // Heritage leaving and Philosophy arriving at one identical rate; the
       // rest simply sits between them without stretching either.
-      const travelled = p * DUO_SPAN;
+      const travelled = dp * DUO_SPAN;
       const enter = clamp01(travelled / DUO_LEG);
       const cross = clamp01((travelled - DUO_LEG - DUO_REST) / DUO_LEG);
 
@@ -1163,21 +1177,36 @@ function HomePage() {
       // before the cross phase starts, or Philosophy would move prematurely.
       const philX = 100 - 100 * cross;
 
-      heritage.style.transform = `translateX(${heritageX}%)`;
-      phil.style.transform = `translateX(${philX}%)`;
-      heritage.style.pointerEvents = heritageX <= -99 ? "none" : "auto";
-      phil.style.pointerEvents = philX >= 99 ? "none" : "auto";
+      // pointer-events can only need to change while the transform is
+      // changing, so both live under the one guard.
+      const herXs = String(heritageX);
+      if (herXs !== lastHerX) {
+        heritage.style.transform = `translateX(${herXs}%)`;
+        heritage.style.pointerEvents = heritageX <= -99 ? "none" : "auto";
+        lastHerX = herXs;
+      }
+      const philXs = String(philX);
+      if (philXs !== lastPhilX) {
+        phil.style.transform = `translateX(${philXs}%)`;
+        phil.style.pointerEvents = philX >= 99 ? "none" : "auto";
+        lastPhilX = philXs;
+      }
     };
     const onScroll = () => {
       if (raf) return;
       raf = requestAnimationFrame(tick);
     };
+    const onResize = () => {
+      measure();
+      onScroll();
+    };
+    measure();
     tick();
     window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
+    window.addEventListener("resize", onResize);
     return () => {
       window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("resize", onResize);
       if (raf) cancelAnimationFrame(raf);
     };
   }, []);
@@ -1218,7 +1247,7 @@ function HomePage() {
       <div className="hero-track" ref={heroTrackRef} style={{ ["--hero-hold" as any]: HOLD }}>
         <section className="hero" id="top" ref={heroRef as any}>
           <video className="hero-video" autoPlay muted loop playsInline aria-hidden="true" />
-          <div className="hero-bg" ref={heroBgRef} aria-hidden="true" />
+          <div className="hero-bg" ref={heroBgRef} aria-hidden="true"><div className="hero-bg-pan" /></div>
           <div className="hero-navy-handoff" ref={heroHandoffRef} aria-hidden="true" />
           <div className="hero-veil" aria-hidden="true" />
           <div className="hero-inner">
