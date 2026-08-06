@@ -134,14 +134,12 @@ ${column}
  *  renders — with ALT text written to be read, because images-off is the
  *  default in many inboxes.
  *
- *  The crest is the project's highest-resolution existing brand asset — the
- *  untouched 300px original (the same file the footer's white variant is cut
- *  from, same artwork, same #132A5E as the wordmark below) — served verbatim
- *  and displayed at 54px, which gives a retina screen ~5.5x the pixels it
- *  needs. No intermediate re-render of ours touches it: an earlier pre-scaled
- *  copy softened the edges in OUR resampler instead of the mail client's,
- *  which fixed nothing. Explicit width AND height attributes because Outlook
- *  sizes from the attributes, not the style. */
+ *  The crest is rendered from the brand's vector original (Asset 27 PDF)
+ *  through Windows' own PDF engine at 1600px, unmixed to transparency and
+ *  laid down in the wordmark's exact #132A5E, then resampled once to 4x its
+ *  54px display size — the raster ceiling of the old 300px source is gone.
+ *  Explicit width AND height attributes because Outlook sizes from the
+ *  attributes, not the style. */
 export function clientConfirmationEmail(
   data: InquiryFields,
   ctx: TemplateContext,
@@ -154,7 +152,7 @@ export function clientConfirmationEmail(
   const column = `
         <tr>
           <td align="center" style="padding:8px 0 40px;">
-            <img src="${esc(ctx.siteUrl)}/email-crest.png" width="54" height="53" alt="Stanton Kingdom crest" style="display:block;border:0;outline:none;text-decoration:none;width:54px;max-width:54px;height:53px;">
+            <img src="${esc(ctx.siteUrl)}/email-crest-v2.png" width="54" height="53" alt="Stanton Kingdom crest" style="display:block;border:0;outline:none;text-decoration:none;width:54px;max-width:54px;height:53px;">
           </td>
         </tr>
         <tr>
