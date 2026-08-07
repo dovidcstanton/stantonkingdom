@@ -22,8 +22,12 @@
  *  meets the holding page at the moment they ask for the results themselves.
  *
  *  CollectionView, the piece page and everything behind them are untouched and
- *  still compile; this is a curtain, not a demolition. Flip to true to open. */
-export const CATALOGUE_LIVE = false;
+ *  still compile; this is a curtain, not a demolition. Flip to true to open.
+ *
+ *  true on the DEVELOPMENT branch while the catalogue experience is being
+ *  built — the dev Worker needs the pages visible to evaluate them. Any
+ *  promotion of this branch to production must decide this flag deliberately. */
+export const CATALOGUE_LIVE = true;
 
 /** Wildcard for any level of a selection. The menu lets you stop drilling at
  *  any depth — "View all Rings" leaves type and style open, "View all pieces"
@@ -70,6 +74,100 @@ export const STYLE_MATCHES_EVERYTHING = "Uniquely Yours";
  *  because the option is typed by hand in the admin, and "metal" vs "Metal"
  *  should not decide whether the colour swatches appear. */
 export const METAL_OPTION = "metal";
+
+/* ------------------------------------------------- metal colour and purity */
+
+/** The two metal axes a piece can carry as Shopify options.
+ *
+ *  "Metal" is the PURITY axis — 14K Gold, 18K Gold, Platinum — and "Metal
+ *  Colour" (or "Metal Color"; both admin spellings match) is the COLOUR axis:
+ *  White, Yellow or Rose Gold. Platinum is deliberately not a colour: a
+ *  platinum piece is white by nature, so its variants exist only against
+ *  White Gold's colourway and the UI forces white when platinum is chosen. */
+export const METAL_COLORS = ["White Gold", "Yellow Gold", "Rose Gold"] as const;
+export type MetalColor = (typeof METAL_COLORS)[number];
+export const METAL_PURITIES = ["14K Gold", "18K Gold", "Platinum"] as const;
+
+export const isMetalOption = (name: string) => name.trim().toLowerCase() === METAL_OPTION;
+export const isMetalColorOption = (name: string) =>
+  /^metal[\s-]*colou?r$/.test(name.trim().toLowerCase());
+
+const normalizeColor = (value: string): MetalColor | null => {
+  const v = value.trim().toLowerCase();
+  return (
+    ((METAL_COLORS as readonly string[]).find((c) => c.toLowerCase() === v) as MetalColor) ??
+    (v === "white"
+      ? "White Gold"
+      : v === "yellow"
+        ? "Yellow Gold"
+        : v === "rose"
+          ? "Rose Gold"
+          : null)
+  );
+};
+
+/** Every (purity, colour) pair the product's variants actually offer, so the
+ *  selectors can only ever lead somewhere real. Purities and colours come back
+ *  in the house's canonical order regardless of admin entry order; a product
+ *  with neither axis returns empty lists and draws neither control. */
+export function metalMatrix(variants: SkVariant[]) {
+  const pairs = new Set<string>();
+  const purities = new Set<string>();
+  const colors = new Set<MetalColor>();
+  for (const v of variants) {
+    const purity = v.options.find((o) => isMetalOption(o.name))?.value.trim() ?? "";
+    const rawColor = v.options.find((o) => isMetalColorOption(o.name))?.value ?? "";
+    const color = rawColor ? normalizeColor(rawColor) : null;
+    if (purity) purities.add(purity);
+    if (color) colors.add(color);
+    if (purity || color) pairs.add(`${purity}|${color ?? ""}`);
+  }
+  const orderedPurities = [
+    ...METAL_PURITIES.filter((p) => purities.has(p)),
+    ...[...purities].filter((p) => !(METAL_PURITIES as readonly string[]).includes(p)),
+  ];
+  const orderedColors = METAL_COLORS.filter((c) => colors.has(c));
+  return {
+    purities: orderedPurities,
+    colors: orderedColors,
+    has: (purity: string | null, color: MetalColor | null) =>
+      pairs.has(`${purity ?? ""}|${color ?? ""}`),
+  };
+}
+
+/* -------------------------------------------------------- gallery grouping */
+
+/** Which colourway a gallery image belongs to is written in its alt text as a
+ *  leading token — "#white-gold A ring turned to the light" — because alt text
+ *  is the one field the Shopify media manager lets David edit per image
+ *  without an app. The token is stripped before the alt reaches a screen
+ *  reader. Untagged images are the piece's signature shots: they open the
+ *  rail, ahead of the colour groups, and belong to no colour. */
+const COLOR_TOKEN = /^\s*#(white|yellow|rose)[\s-]*gold\b[\s:—-]*/i;
+
+export function imageColor(img: SkImage): MetalColor | null {
+  const m = img.alt.match(COLOR_TOKEN);
+  if (!m) return null;
+  return normalizeColor(m[1] + " gold");
+}
+
+export const cleanAlt = (img: SkImage) => img.alt.replace(COLOR_TOKEN, "").trim();
+
+export type GallerySlide = { img: SkImage; color: MetalColor | null };
+
+/** The rail's slide order: signature shots first, then White, Yellow, Rose —
+ *  a fixed order so the same swipe direction always moves through the metals
+ *  the same way, whatever order the images were uploaded in. */
+export function galleryPlan(images: SkImage[]) {
+  const slides: GallerySlide[] = [
+    ...images.filter((i) => imageColor(i) === null).map((img) => ({ img, color: null })),
+    ...METAL_COLORS.flatMap((c) =>
+      images.filter((i) => imageColor(i) === c).map((img) => ({ img, color: c })),
+    ),
+  ];
+  const firstIndex = (color: MetalColor) => slides.findIndex((s) => s.color === color);
+  return { slides, firstIndex };
+}
 
 /** Swatch colours for the metals the house works in. A metal the site doesn't
  *  recognise still gets a button — it just renders without a swatch, so an
@@ -133,7 +231,17 @@ export function validateCollectionSearch(raw: Record<string, unknown>): Collecti
   return style && (STYLES as readonly string[]).includes(style) ? { style } : {};
 }
 
-export type SkImage = { url: string; alt: string; width: number | null; height: number | null };
+export type SkImage = {
+  url: string;
+  alt: string;
+  width: number | null;
+  height: number | null;
+  /** PROTOTYPE ONLY — set by the sample catalogue, never by Shopify data.
+   *  The sample library has one photograph per piece, so the metal groups
+   *  tint it in CSS to stay visually tellable-apart while the rail mechanics
+   *  are evaluated. Real products carry real per-metal photography instead. */
+  tint?: "white" | "yellow" | "rose";
+};
 
 export type SkVariant = {
   id: string;
@@ -164,6 +272,14 @@ export type SkProduct = {
   style: string;
   shape: string;
   acquisition: Acquisition;
+  /** The house reference for the piece — SK-RING-SOV — from the
+   *  custom.product_code metafield, with the first variant's SKU stem as the
+   *  fallback. Travels in every WhatsApp enquiry so the advisor knows the
+   *  piece without asking. */
+  code: string;
+  /** Factual specification rows for the Product Details accordion, parsed from
+   *  the custom.details metafield: one "Label: value" per line. */
+  details: [string, string][];
   price: number;
   compareAt: number | null;
   currency: string;

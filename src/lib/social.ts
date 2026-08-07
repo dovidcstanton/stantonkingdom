@@ -1,11 +1,9 @@
 // One WhatsApp link for the whole site, so the pre-filled opener travels
 // wherever the button does rather than being retyped — and drifting — at
 // each call site.
-export const WHATSAPP_MESSAGE =
-  "Hi, I'd love to gain more insight regarding...";
+export const WHATSAPP_MESSAGE = "Hi, I'd love to gain more insight regarding...";
 const WHATSAPP_NUMBER = "16464508840";
-export const WHATSAPP_URL =
-  `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`;
+export const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`;
 
 /* The visitor's own words, and nothing else. Used by the Concierge when it
    cannot answer from the FAQ: the advisor opens the chat already knowing what
@@ -29,6 +27,20 @@ export function whatsappUrlWithQuestion(question: string) {
   const asked = question.trim();
   if (!asked) return WHATSAPP_URL;
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(asked)}`;
+}
+
+/** The enquiry a piece's Inquire control opens with — the advisor should know
+ *  the piece, its house code, and the metal the client was looking at before
+ *  the first reply. One builder so the collection card and the piece page can
+ *  never phrase it differently. */
+export function whatsappForPiece(d: { name: string; code: string; metal?: string; url: string }) {
+  const lines = [
+    `Hi, I'd love more details on ${d.name}.`,
+    d.code ? `Code: ${d.code}` : "",
+    d.metal ? `Metal: ${d.metal}` : "",
+    d.url,
+  ].filter(Boolean);
+  return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(lines.join("\n"))}`;
 }
 
 export const SOCIAL_X = "https://x.com/stantonkingdom";

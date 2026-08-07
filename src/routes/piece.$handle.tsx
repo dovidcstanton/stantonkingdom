@@ -3,21 +3,37 @@
  *  Server-rendered through a loader rather than fetched in the browser, because
  *  this is the page that gets shared, indexed and pasted into a message — it
  *  has to arrive complete, with its own title and preview image, not as an
- *  empty shell that fills in a moment later. */
+ *  empty shell that fills in a moment later.
+ *
+ *  The gallery is one continuous horizontal rail — every photograph the piece
+ *  owns, edge to edge, in a fixed promenade order: the signature shots first,
+ *  then the White Gold group, Yellow, Rose. Native scroll-snap carries the
+ *  touch physics; nothing is transform-driven, so a swipe has the operating
+ *  system's own momentum. The colourway selection and the rail are two views
+ *  of one state: choosing a swatch glides the rail to that group's first
+ *  frame, and swiping into a group by hand moves the swatch — in both
+ *  directions, without either fighting the other. */
 
 import { useMemo, useRef, useState } from "react";
 import { Link, createFileRoute, notFound } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import * as Accordion from "@radix-ui/react-accordion";
 
 import { fetchCatalog, fetchPiece } from "@/lib/shopify.functions";
 import {
-  METAL_OPTION,
   METAL_SWATCHES,
+  cleanAlt,
   collectionPath,
+  galleryPlan,
+  isMetalColorOption,
+  isMetalOption,
+  metalMatrix,
   money,
+  type MetalColor,
   type SkProduct,
   type SkVariant,
 } from "@/lib/catalog";
+import { whatsappForPiece } from "@/lib/social";
 import { useCart } from "@/lib/cart";
 import { InquiryDialog } from "@/components/InquiryDialog";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -53,25 +69,95 @@ function PiecePage() {
   const piece = Route.useLoaderData();
   const [inquiring, setInquiring] = useState(false);
 
-  // Variants whose options are all "Default Title" are Shopify's stand-in for
-  // a product with no options at all, and must not draw a selector.
-  const hasChoices = piece.variants.length > 1;
-  const [variantId, setVariantId] = useState(
-    () => (piece.variants.find((v) => v.available) ?? piece.variants[0])?.id ?? "",
-  );
-  const variant = piece.variants.find((v) => v.id === variantId) ?? piece.variants[0];
+  const matrix = useMemo(() => metalMatrix(piece.variants), [piece.variants]);
+  const hasMetalAxes = matrix.purities.length > 0 || matrix.colors.length > 0;
+
+  // ---- the one metal state both the rail and the selectors read ----
+  const [purity, setPurity] = useState<string | null>(() => {
+    const p = matrix.purities.find((pp) =>
+      matrix.colors.length ? matrix.colors.some((c) => matrix.has(pp, c)) : true,
+    );
+    return p ?? null;
+  });
+  const [color, setColor] = useState<MetalColor | null>(() => {
+    const first = matrix.colors.find((c) => matrix.has(matrix.purities[0] ?? null, c));
+    return first ?? matrix.colors[0] ?? null;
+  });
+
+  const plan = useMemo(() => galleryPlan(piece.images), [piece.images]);
+  const trackRef = useRef<HTMLDivElement>(null);
+  // While the rail is gliding to a colour the visitor CHOSE, the slides it
+  // passes through must not re-derive the choice — the glide crosses other
+  // groups on the way and would flap the swatches mid-flight.
+  const suppressUntil = useRef(0);
+
+  const glideToColor = (c: MetalColor) => {
+    const i = plan.firstIndex(c);
+    const el = trackRef.current;
+    if (i < 0 || !el) return;
+    suppressUntil.current = performance.now() + 900;
+    el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
+  };
+
+  /** Choosing a colour: settle the purity onto one that exists in that
+   *  colour, and glide the rail — unless the choice CAME from the rail. */
+  const selectColor = (c: MetalColor, fromRail = false) => {
+    setColor(c);
+    if (purity && !matrix.has(purity, c)) {
+      setPurity(matrix.purities.find((p) => matrix.has(p, c)) ?? null);
+    }
+    if (!fromRail) glideToColor(c);
+  };
+
+  /** Choosing a purity: platinum is white by nature, so it forces the white
+   *  colourway; any other purity keeps the colour if the combination exists
+   *  and otherwise moves to the first that does. */
+  const selectPurity = (p: string) => {
+    setPurity(p);
+    if (p === "Platinum") {
+      if (color !== "White Gold") selectColor("White Gold");
+    } else if (color && !matrix.has(p, color)) {
+      const c = matrix.colors.find((cc) => matrix.has(p, cc));
+      if (c) selectColor(c);
+    }
+  };
+
+  // The variant the current metal selection names. Non-metal axes (a ring
+  // size, say) are not part of this slice's selectors, so the first available
+  // variant matching the metal axes stands for the piece.
+  const variant = useMemo(() => {
+    const matches = piece.variants.filter((v) => {
+      const vp = v.options.find((o) => isMetalOption(o.name))?.value.trim() ?? null;
+      const vc = v.options.find((o) => isMetalColorOption(o.name))?.value.trim() ?? null;
+      if (purity && vp !== purity) return false;
+      if (color && vc !== color) return false;
+      return true;
+    });
+    return matches.find((v) => v.available) ?? matches[0] ?? piece.variants[0];
+  }, [piece.variants, purity, color]);
 
   const price = variant?.price ?? piece.price;
-  const compareAt = variant?.compareAt ?? piece.compareAt;
+  const fromPrice = piece.price;
   const canBuy = piece.acquisition === "cart" && !piece.soldOut && Boolean(variant?.available);
+
+  const whatsapp = () => {
+    const metal = [color, purity].filter(Boolean).join(" · ");
+    window.open(
+      whatsappForPiece({
+        name: piece.name,
+        code: piece.code,
+        metal: hasMetalAxes && metal ? metal : undefined,
+        url: window.location.href.split("#")[0],
+      }),
+      "_blank",
+      "noopener,noreferrer",
+    );
+  };
 
   return (
     <>
       <main className="piece">
         <div className="wrap piece-wrap">
-          {/* Real links, not labels: arriving here from a search result is the
-              common case, and the crumb is then the only route into the rest of
-              the collection. */}
           <nav className="piece-crumbs" aria-label="Breadcrumb">
             <Link to="/">Home</Link>
             {piece.category ? (
@@ -89,45 +175,78 @@ function PiecePage() {
           </nav>
 
           <div className="piece-grid">
-            <Gallery piece={piece} />
+            <Rail
+              piece={piece}
+              plan={plan}
+              trackRef={trackRef}
+              suppressUntil={suppressUntil}
+              activeColor={color}
+              onRailColor={(c) => selectColor(c, true)}
+            />
 
             <div className="piece-detail">
               {piece.style ? <span className="eyebrow">{piece.style}</span> : null}
               <h1 className="serif piece-title">{piece.name}</h1>
-              {piece.spec ? <p className="piece-spec">{piece.spec}</p> : null}
 
               <div className="piece-price">
-                <span className="pp-now">{money(price, piece.currency)}</span>
-                {compareAt ? (
-                  <span className="pp-was">{money(compareAt, piece.currency)}</span>
-                ) : null}
+                <span className="pp-now">
+                  {price !== fromPrice
+                    ? money(price, piece.currency)
+                    : `From ${money(fromPrice, piece.currency)}`}
+                </span>
+                <span className="pp-custom">Fully customizable</span>
               </div>
 
-              <Attributes piece={piece} />
-
-              {hasChoices ? (
-                <VariantPicker
-                  variants={piece.variants}
-                  selectedId={variantId}
-                  onSelect={setVariantId}
-                />
+              {matrix.colors.length ? (
+                <div className="metal-colors" role="group" aria-label="Metal colour">
+                  {matrix.colors.map((c) => {
+                    const platinumLocked = purity === "Platinum" && c !== "White Gold";
+                    return (
+                      <button
+                        key={c}
+                        className={"mc-swatch" + (color === c ? " sel" : "")}
+                        style={{ background: METAL_SWATCHES[c.toLowerCase()] }}
+                        onClick={() => selectColor(c)}
+                        disabled={platinumLocked}
+                        aria-pressed={color === c}
+                        aria-label={c + (platinumLocked ? " (not offered in platinum)" : "")}
+                        title={c}
+                      />
+                    );
+                  })}
+                  {color ? <span className="mc-name">{color}</span> : null}
+                </div>
               ) : null}
 
-              <Actions
-                piece={piece}
-                variant={variant}
-                canBuy={canBuy}
-                onInquire={() => setInquiring(true)}
-              />
-
-              {piece.descriptionHtml ? (
-                <div
-                  className="piece-copy"
-                  // Shopify's rich-text description, authored by David in the
-                  // admin. Same trust boundary as the rest of the store's copy.
-                  dangerouslySetInnerHTML={{ __html: piece.descriptionHtml }}
-                />
+              {matrix.purities.length ? (
+                <div className="metal-purity" role="group" aria-label="Metal">
+                  <span className="mp-label">Metal</span>
+                  <div className="mp-seg">
+                    {matrix.purities.map((p) => (
+                      <button
+                        key={p}
+                        className={"mp-opt" + (purity === p ? " sel" : "")}
+                        onClick={() => selectPurity(p)}
+                        aria-pressed={purity === p}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ) : null}
+
+              <div className="piece-actions">
+                <button className="btn btn-solid btn-wa" onClick={whatsapp}>
+                  Enquire via WhatsApp
+                </button>
+                {canBuy ? <BuyButton variant={variant} /> : null}
+                <button className="pa-quiet" onClick={() => setInquiring(true)}>
+                  Prefer email? Write to us instead
+                </button>
+              </div>
+
+              <PieceAccordions piece={piece} />
 
               <Assurance />
             </div>
@@ -144,39 +263,43 @@ function PiecePage() {
   );
 }
 
-/** The piece's photography, as a slider.
- *
- *  Native horizontal scroll-snap rather than a transform-driven carousel —
- *  the same mechanism the Collections carousel on the home page uses. It costs
- *  nothing on the main thread, and on a phone it inherits real momentum
- *  scrolling, so a swipe feels like the operating system rather than like
- *  JavaScript imitating one. Arrows, dots and thumbnails are three ways to
- *  drive the same scroll position; the active index is read back off the
- *  scroll rather than tracked separately, so nothing can drift out of sync. */
-function Gallery({ piece }: { piece: SkProduct }) {
-  const trackRef = useRef<HTMLDivElement>(null);
+/** The continuous showroom rail. Pure scroll-snap: each slide is exactly one
+ *  viewport of the gallery wide, the images touch, and the browser owns the
+ *  physics. The active index is read back off the scroll position itself, so
+ *  the indicators and the colourway can never drift from what the eye sees. */
+function Rail({
+  piece,
+  plan,
+  trackRef,
+  suppressUntil,
+  activeColor,
+  onRailColor,
+}: {
+  piece: SkProduct;
+  plan: ReturnType<typeof galleryPlan>;
+  trackRef: React.RefObject<HTMLDivElement | null>;
+  suppressUntil: React.MutableRefObject<number>;
+  activeColor: MetalColor | null;
+  onRailColor: (c: MetalColor) => void;
+}) {
   const [active, setActive] = useState(0);
-  const images = piece.images;
+  const raf = useRef(0);
 
-  const goTo = (i: number) => {
-    const el = trackRef.current;
-    if (!el) return;
-    const clamped = Math.max(0, Math.min(images.length - 1, i));
-    el.scrollTo({ left: clamped * el.clientWidth, behavior: "smooth" });
-  };
-
-  // Read the index back off the scroll position, coalesced to a frame so a
-  // momentum scroll doesn't run this on every pixel.
   const onScroll = () => {
-    const el = trackRef.current;
-    if (!el) return;
-    window.requestAnimationFrame(() => {
+    if (raf.current) return;
+    raf.current = window.requestAnimationFrame(() => {
+      raf.current = 0;
+      const el = trackRef.current;
+      if (!el || !el.clientWidth) return;
       const i = Math.round(el.scrollLeft / el.clientWidth);
       setActive((prev) => (prev === i ? prev : i));
+      if (performance.now() < suppressUntil.current) return;
+      const c = plan.slides[i]?.color;
+      if (c && c !== activeColor) onRailColor(c);
     });
   };
 
-  if (!images.length) {
+  if (!plan.slides.length) {
     return (
       <div className="piece-gallery">
         <div className="pg-main">
@@ -189,244 +312,143 @@ function Gallery({ piece }: { piece: SkProduct }) {
 
   return (
     <div className="piece-gallery">
-      <div className="pg-main">
-        <div className="pg-track" ref={trackRef} onScroll={onScroll}>
-          {images.map((img, i) => (
-            <div className="pg-slide" key={img.url}>
+      <div className="pg-main rail-main">
+        <div className="pg-track rail-track" ref={trackRef} onScroll={onScroll}>
+          {plan.slides.map(({ img, color }, i) => (
+            <div className="pg-slide" key={`${img.url}#${i}`}>
               <img
                 src={img.url}
-                alt={img.alt}
+                alt={cleanAlt(img)}
                 width={img.width ?? undefined}
                 height={img.height ?? undefined}
-                // The first frame is what the client waits on; the rest can
-                // arrive as they scroll to them.
+                className={img.tint ? `rail-tint-${img.tint}` : undefined}
                 loading={i === 0 ? "eager" : "lazy"}
+                draggable={false}
               />
+              {color ? <span className="rail-caption">{color}</span> : null}
             </div>
           ))}
         </div>
-
         {piece.soldOut ? <span className="pg-flag">Acquired</span> : null}
-
-        {images.length > 1 ? (
-          <>
-            <button
-              className="pg-arw l"
-              onClick={() => goTo(active - 1)}
-              disabled={active === 0}
-              aria-label="Previous image"
-            >
-              ‹
-            </button>
-            <button
-              className="pg-arw r"
-              onClick={() => goTo(active + 1)}
-              disabled={active === images.length - 1}
-              aria-label="Next image"
-            >
-              ›
-            </button>
-          </>
-        ) : null}
       </div>
 
-      {images.length > 1 ? (
-        <>
-          <div className="pg-dots">
-            {images.map((img, i) => (
-              <button
-                key={img.url}
-                className={"pg-dot" + (i === active ? " on" : "")}
-                onClick={() => goTo(i)}
-                aria-label={`Go to image ${i + 1} of ${images.length}`}
-                aria-current={i === active}
-              />
-            ))}
-          </div>
-          <div className="pg-thumbs">
-            {images.map((img, i) => (
-              <button
-                key={img.url}
-                className={"pg-thumb" + (i === active ? " sel" : "")}
-                onClick={() => goTo(i)}
-                aria-label={`View image ${i + 1} of ${images.length}`}
-              >
-                <span style={{ backgroundImage: `url('${img.url}')` }} />
-              </button>
-            ))}
-          </div>
-        </>
+      {plan.slides.length > 1 ? (
+        <div className="rail-dots" role="tablist" aria-label="Gallery position">
+          {plan.slides.map(({ color }, i) => (
+            <button
+              key={i}
+              className={"rail-dot" + (i === active ? " on" : "") + (color ? "" : " sig")}
+              onClick={() => {
+                const el = trackRef.current;
+                if (!el) return;
+                suppressUntil.current = performance.now() + 900;
+                el.scrollTo({ left: i * el.clientWidth, behavior: "smooth" });
+                if (color) onRailColor(color);
+              }}
+              aria-label={`Image ${i + 1} of ${plan.slides.length}${color ? `, ${color}` : ""}`}
+              aria-current={i === active}
+            />
+          ))}
+        </div>
       ) : null}
     </div>
   );
 }
 
-/** The specification table. Only rows the piece actually carries — a table half
- *  full of dashes reads as an unfinished listing. */
-function Attributes({ piece }: { piece: SkProduct }) {
-  const rows = [
-    ["Collection", piece.category],
-    ["Type", piece.type],
-    ["Stone Shape", piece.shape],
-    ["Style", piece.style],
-  ].filter(([, v]) => Boolean(v));
-
-  if (!rows.length) return null;
+/** Description first — the piece's narrative, closed by the house's
+ *  manufacturing line — then the factual specification. Radix carries the
+ *  keyboard and ARIA work; the styling keeps it to thin rules and one quiet
+ *  chevron. */
+function PieceAccordions({ piece }: { piece: SkProduct }) {
+  const rows: [string, string][] = [
+    ...piece.details,
+    ...(piece.code ? ([["Product code", piece.code]] as [string, string][]) : []),
+  ];
 
   return (
-    <dl className="piece-attrs">
-      {rows.map(([k, v]) => (
-        <div key={k}>
-          <dt>{k}</dt>
-          <dd>{v}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-function VariantPicker({
-  variants,
-  selectedId,
-  onSelect,
-}: {
-  variants: SkVariant[];
-  selectedId: string;
-  onSelect: (id: string) => void;
-}) {
-  // Rebuild the option axes from the variants themselves. Shopify gives each
-  // variant its resolved option values, so the axes are the distinct values per
-  // option name, in first-seen order.
-  const axes = useMemo(() => {
-    const byName = new Map<string, string[]>();
-    for (const v of variants) {
-      for (const o of v.options) {
-        if (o.name === "Title" && o.value === "Default Title") continue;
-        const seen = byName.get(o.name) ?? [];
-        if (!seen.includes(o.value)) seen.push(o.value);
-        byName.set(o.name, seen);
-      }
-    }
-    return [...byName.entries()].map(([name, values]) => ({ name, values }));
-  }, [variants]);
-
-  const selected = variants.find((v) => v.id === selectedId);
-
-  if (!axes.length) return null;
-
-  return (
-    <div className="piece-variants">
-      {axes.map((axis) => {
-        // Metal is the one axis where the word alone is the weaker label — a
-        // client choosing between yellow and rose is choosing a colour, so the
-        // colour is shown. Matched case-insensitively because the option name
-        // is typed by hand in the Shopify admin.
-        const isMetal = axis.name.trim().toLowerCase() === METAL_OPTION;
-        const chosen = selected?.options.find((o) => o.name === axis.name)?.value;
-
-        return (
-          <div key={axis.name} className="pv-axis">
-            <span className="pv-label">
-              {axis.name}
-              {chosen ? <b>{chosen}</b> : null}
-            </span>
-            <div className={"pv-opts" + (isMetal ? " pv-metal" : "")}>
-              {axis.values.map((value) => {
-                // Hold every other axis steady and move only this one, so each
-                // button leads to a variant that actually exists.
-                const target = variants.find((v) =>
-                  v.options.every((o) =>
-                    o.name === axis.name
-                      ? o.value === value
-                      : o.value === selected?.options.find((s) => s.name === o.name)?.value,
-                  ),
-                );
-                const isSel = chosen === value;
-                const swatch = METAL_SWATCHES[value.trim().toLowerCase()];
-
-                return (
-                  <button
-                    key={value}
-                    className={
-                      "pv-opt" +
-                      (isSel ? " sel" : "") +
-                      (target && !target.available ? " out" : "")
-                    }
-                    disabled={!target}
-                    onClick={() => target && onSelect(target.id)}
-                  >
-                    {/* A metal the site has no swatch for still gets its
-                        button — it just renders as a plain label rather than
-                        being dropped from the page. */}
-                    {isMetal && swatch ? (
-                      <i className="pv-sw" style={{ background: swatch }} aria-hidden="true" />
-                    ) : null}
-                    {value}
-                  </button>
-                );
-              })}
-            </div>
+    <Accordion.Root type="multiple" defaultValue={["desc"]} className="pacc">
+      <Accordion.Item value="desc" className="pacc-item">
+        <Accordion.Header className="pacc-head">
+          <Accordion.Trigger className="pacc-trigger">
+            Description
+            <svg className="pacc-chev" viewBox="0 0 12 8" aria-hidden="true">
+              <path
+                d="M1 1.5 6 6.5 11 1.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+              />
+            </svg>
+          </Accordion.Trigger>
+        </Accordion.Header>
+        <Accordion.Content className="pacc-content">
+          <div className="pacc-inner">
+            {piece.descriptionHtml ? (
+              <div
+                className="piece-copy"
+                // Shopify's rich-text description, authored by David in the
+                // admin. Same trust boundary as the rest of the store's copy.
+                dangerouslySetInnerHTML={{ __html: piece.descriptionHtml }}
+              />
+            ) : null}
+            <p className="pacc-made">
+              Made to order • typically 3–4 weeks. More extensive customizations may require
+              additional time.
+            </p>
           </div>
-        );
-      })}
-    </div>
+        </Accordion.Content>
+      </Accordion.Item>
+
+      {rows.length ? (
+        <Accordion.Item value="details" className="pacc-item">
+          <Accordion.Header className="pacc-head">
+            <Accordion.Trigger className="pacc-trigger">
+              Product Details
+              <svg className="pacc-chev" viewBox="0 0 12 8" aria-hidden="true">
+                <path
+                  d="M1 1.5 6 6.5 11 1.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.4"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </Accordion.Trigger>
+          </Accordion.Header>
+          <Accordion.Content className="pacc-content">
+            <div className="pacc-inner">
+              <dl className="pacc-rows">
+                {rows.map(([k, v]) => (
+                  <div key={k}>
+                    <dt>{k}</dt>
+                    <dd>{v}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </Accordion.Content>
+        </Accordion.Item>
+      ) : null}
+    </Accordion.Root>
   );
 }
 
-function Actions({
-  piece,
-  variant,
-  canBuy,
-  onInquire,
-}: {
-  piece: SkProduct;
-  variant: SkVariant | undefined;
-  canBuy: boolean;
-  onInquire: () => void;
-}) {
+function BuyButton({ variant }: { variant: SkVariant | undefined }) {
   const { add, busy } = useCart();
   const [failed, setFailed] = useState(false);
-
-  if (piece.soldOut || (variant && !variant.available && piece.acquisition === "cart")) {
-    return (
-      <div className="piece-actions">
-        <button className="btn btn-solid" disabled>
-          Acquired
-        </button>
-        <button className="btn btn-ghost-d" onClick={onInquire}>
-          Commission Something Similar
-        </button>
-      </div>
-    );
-  }
-
-  if (!canBuy) {
-    return (
-      <div className="piece-actions">
-        <button className="btn btn-solid" onClick={onInquire}>
-          Enquire About This Piece
-        </button>
-        <p className="piece-action-note">
-          Pieces at this level are placed personally. We'll answer within one business day.
-        </p>
-      </div>
-    );
-  }
-
+  if (!variant) return null;
   return (
-    <div className="piece-actions">
+    <>
       <button
-        className="btn btn-solid"
+        className="btn btn-ghost-d"
         disabled={busy}
         onClick={async () => {
-          const ok = await add(variant!.id, 1);
+          const ok = await add(variant.id, 1);
           setFailed(!ok);
         }}
       >
         {busy ? "Adding…" : "Add to Selection"}
-      </button>
-      <button className="btn btn-ghost-d" onClick={onInquire}>
-        Ask a Question
       </button>
       {failed ? (
         <p className="piece-action-note err">
@@ -434,7 +456,7 @@ function Actions({
           <a href="mailto:sales@stantonkingdom.com">sales@stantonkingdom.com</a>.
         </p>
       ) : null}
-    </div>
+    </>
   );
 }
 

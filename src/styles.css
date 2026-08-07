@@ -4472,12 +4472,228 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.13);
 }
 
+/* ================================================================
+   CATALOGUE v2 — editorial mosaic, compact grid, the showroom rail
+   (CollectionView.tsx + piece.$handle.tsx)
+   ================================================================ */
+
+/* The site's footer is a sticky curtain-reveal (position:sticky;bottom:0;
+   z-index:0 — see the #begin notes): it pins to the viewport bottom and is
+   meant to be UNCOVERED beneath the page's last opaque content. The homepage
+   raises #begin above it; the catalogue pages were built before that footer
+   and then hidden behind the Coming Soon curtain, so they never got the same
+   treatment — their static mains painted UNDER the pinned footer, which put
+   a navy footer on top of the product grid from the first viewport. Raising
+   the mains (and the category bar) restores the reveal: the footer stays
+   hidden behind the ivory until the visitor scrolls out the bottom of the
+   catalogue, exactly as on the homepage. */
+/* The category bar needs nothing: it is already sticky with its own z-index. */
+main.coll,
+main.piece{position:relative;z-index:1}
+
+/* ---- controls: layout toggle, then filters, one quiet row ---- */
+.cat-controls{display:flex;align-items:center;gap:.85rem;padding-top:1.15rem}
+.lay-toggle{
+  display:inline-flex;flex:0 0 auto;gap:.15rem;padding:.18rem;
+  background:#fff;border:1px solid var(--line);border-radius:999px;
+}
+.lt-btn{
+  width:36px;height:30px;display:grid;place-items:center;
+  border:none;background:none;border-radius:999px;color:var(--ink-mute);
+  cursor:pointer;transition:background .3s,color .3s;
+}
+.lt-btn svg{width:14px;height:14px;fill:currentColor}
+.lt-btn.on{background:var(--navy);color:var(--ivory)}
+.cat-filter{
+  display:flex;gap:.4rem;overflow-x:auto;scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;min-width:0;
+}
+.cat-filter::-webkit-scrollbar{display:none}
+.cf-chip{
+  flex:0 0 auto;font-family:var(--sans);font-size:.56rem;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--ink-soft);background:none;
+  border:1px solid var(--line);border-radius:999px;padding:.5rem .85rem;
+  cursor:pointer;transition:border-color .3s,color .3s,background .3s;
+}
+.cf-chip.on{border-color:var(--gold);color:var(--navy);background:rgba(174,140,76,.08)}
+.cat-shapes{
+  display:flex;gap:.55rem;overflow-x:auto;scrollbar-width:none;
+  padding:.85rem 0 .1rem;-webkit-overflow-scrolling:touch;
+}
+.cat-shapes::-webkit-scrollbar{display:none}
+.cat-shapes .sh{flex:0 0 auto}
+
+/* ---- the two layouts. One array feeds both; .cc-wide is a property of a
+   POSITION in the editorial rhythm (every third card), never of a piece, so
+   nothing is ever listed twice to fill the large slot. ---- */
+.cat-flow{display:grid;grid-template-columns:1fr 1fr;gap:.9rem;padding:1.2rem 0 5rem}
+.cat-mosaic .cc-wide{grid-column:1 / -1}
+.cat-mosaic .cc-wide .cc-img{aspect-ratio:4/3}
+.cat-mosaic .cc-wide .cc-body h3{font-size:1.16rem}
+/* The mosaic is a phone's promenade; wider screens read as the standard
+   grid, and the toggle that switches the two stays out of their way. */
+@media(min-width:761px){
+  .cat-flow{grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1.15rem}
+  .cat-mosaic .cc-wide{grid-column:auto}
+  .cat-mosaic .cc-wide .cc-img{aspect-ratio:1/1}
+  .cat-mosaic .cc-wide .cc-body h3{font-size:1rem}
+  .lay-toggle{display:none}
+}
+
+/* ---- the card: photograph, name, one quiet line, and Inquire ---- */
+.cat-card{display:flex;flex-direction:column;gap:.55rem;position:relative}
+.cc-img{
+  position:relative;aspect-ratio:1/1;border-radius:16px;overflow:hidden;
+  background:var(--navy);
+}
+.cc-photo{
+  position:absolute;inset:0;display:block;
+  background-size:cover;background-position:center;
+  transform:scale(1.02);transition:transform 5s ease;
+}
+.cat-card:hover .cc-photo{transform:scale(1.08)}
+.cc-body{display:block;padding:0 .15rem}
+.cc-body h3{
+  font-family:var(--serif);font-weight:400;font-size:.98rem;line-height:1.3;
+  color:var(--navy);
+}
+.cc-sub{
+  font-family:var(--sans);font-size:.64rem;letter-spacing:.05em;
+  color:var(--ink-mute);margin-top:.2rem;
+}
+.p-skeleton .cc-img{background:var(--paper-cream);animation:skpulse 1.6s ease-in-out infinite}
+
+/* Small to the eye, generous to the thumb: the visual pill stays discreet and
+   the ::after quietly grows the tap target past 44px. Frost, not a slab —
+   blur and a hairline of light over the photograph. */
+.cc-inquire{
+  position:absolute;right:.6rem;bottom:.6rem;z-index:2;
+  font-family:var(--sans);font-size:.52rem;letter-spacing:.22em;text-transform:uppercase;
+  color:#fff;background:rgba(15,25,50,.34);
+  -webkit-backdrop-filter:blur(10px) saturate(1.35);
+  backdrop-filter:blur(10px) saturate(1.35);
+  border:1px solid rgba(255,255,255,.38);border-radius:999px;
+  padding:.5rem .85rem;cursor:pointer;
+  transition:background .3s,border-color .3s;
+}
+.cc-inquire::after{content:'';position:absolute;inset:-9px;border-radius:999px}
+.cc-inquire:hover{background:rgba(174,140,76,.6);border-color:rgba(255,255,255,.65)}
+
+/* ---- the showroom rail ---- */
+/* Edge to edge on a phone: the photographs escape the page column and meet
+   the screen's own edges, one aligned slide per swipe, nothing between them. */
+@media(max-width:900px){
+  .rail-main{margin-inline:calc(50% - 50vw);border-radius:0}
+}
+.rail-track{
+  overscroll-behavior-x:contain;
+  touch-action:pan-x pan-y;
+}
+.pg-slide{position:relative}
+.pg-slide img{user-select:none;-webkit-user-drag:none}
+.rail-caption{
+  position:absolute;left:.85rem;bottom:.8rem;
+  font-family:var(--sans);font-size:.5rem;letter-spacing:.24em;text-transform:uppercase;
+  color:#fff;background:rgba(15,25,50,.3);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.28);border-radius:999px;
+  padding:.34rem .7rem;pointer-events:none;
+}
+/* PROTOTYPE ONLY — the sample library tints its one photograph per colourway
+   so the groups are tellable-apart; real per-metal photography carries no
+   tint class and these rules never apply. */
+.rail-tint-white{filter:saturate(.8) brightness(1.04)}
+.rail-tint-yellow{filter:sepia(.34) saturate(1.18) hue-rotate(-10deg)}
+.rail-tint-rose{filter:sepia(.3) saturate(1.25) hue-rotate(-30deg) brightness(1.02)}
+
+.rail-dots{display:flex;gap:.44rem;justify-content:center;padding:.8rem 0 .1rem}
+.rail-dot{
+  position:relative;width:5px;height:5px;border-radius:50%;
+  background:rgba(19,42,94,.22);border:none;padding:0;cursor:pointer;
+  transition:background .3s,transform .3s;
+}
+.rail-dot::after{content:'';position:absolute;inset:-7px}
+.rail-dot.on{background:var(--gold);transform:scale(1.35)}
+
+/* ---- metal colour and purity ---- */
+.pp-custom{
+  font-size:.66rem;font-family:var(--sans);letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-mute);margin-left:.8rem;
+}
+.metal-colors{display:flex;align-items:center;gap:.85rem;margin:1.15rem 0 .35rem}
+.mc-swatch{
+  position:relative;width:26px;height:26px;border-radius:50%;border:none;
+  cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14);
+  transition:transform .25s,opacity .25s;
+}
+.mc-swatch::after{content:'';position:absolute;inset:-8px;border-radius:50%}
+.mc-swatch.sel{outline:1.5px solid var(--navy);outline-offset:3px}
+.mc-swatch:disabled{opacity:.3;cursor:default}
+.mc-name{
+  font-family:var(--sans);font-size:.66rem;letter-spacing:.1em;color:var(--ink-soft);
+  margin-left:.15rem;
+}
+.metal-purity{display:flex;align-items:center;gap:.8rem;margin:.75rem 0 1.25rem;flex-wrap:wrap}
+.mp-label{
+  font-family:var(--sans);font-size:.56rem;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--ink-soft);
+}
+.mp-seg{
+  display:inline-flex;gap:.15rem;padding:.18rem;
+  background:#fff;border:1px solid var(--line);border-radius:999px;
+}
+.mp-opt{
+  border:none;background:none;border-radius:999px;padding:.44rem .8rem;
+  font-family:var(--sans);font-size:.6rem;letter-spacing:.08em;color:var(--ink-soft);
+  cursor:pointer;transition:background .3s,color .3s;white-space:nowrap;
+}
+.mp-opt.sel{background:var(--navy);color:var(--ivory)}
+
+.btn-wa{width:100%}
+.pa-quiet{
+  border:none;background:none;padding:.2rem 0;cursor:pointer;
+  font-family:var(--sans);font-size:.66rem;letter-spacing:.05em;
+  color:var(--ink-mute);text-decoration:underline;text-underline-offset:3px;
+  transition:color .3s;
+}
+.pa-quiet:hover{color:var(--navy)}
+
+/* ---- the two accordions: thin rules, one quiet chevron ---- */
+.pacc{margin-top:1.7rem;border-top:1px solid var(--line)}
+.pacc-item{border-bottom:1px solid var(--line)}
+.pacc-head{margin:0}
+.pacc-trigger{
+  width:100%;display:flex;align-items:center;justify-content:space-between;
+  background:none;border:none;padding:1.05rem 0;cursor:pointer;
+  font-family:var(--sans);font-size:.64rem;letter-spacing:.24em;
+  text-transform:uppercase;color:var(--navy);
+}
+.pacc-chev{width:11px;height:8px;color:var(--gold);transition:transform .35s ease}
+.pacc-trigger[data-state=open] .pacc-chev{transform:rotate(180deg)}
+.pacc-content{overflow:hidden}
+.pacc-content[data-state=open]{animation:paccDown .34s cubic-bezier(.32,.72,.32,1)}
+.pacc-content[data-state=closed]{animation:paccUp .26s cubic-bezier(.5,0,.68,.4)}
+@keyframes paccDown{from{height:0}to{height:var(--radix-accordion-content-height)}}
+@keyframes paccUp{from{height:var(--radix-accordion-content-height)}to{height:0}}
+.pacc-inner{padding:0 0 1.25rem}
+.pacc-inner .piece-copy{margin:0}
+.pacc-made{
+  margin-top:.95rem;font-family:var(--sans);font-size:.7rem;
+  letter-spacing:.03em;color:var(--ink-mute);
+}
+.pacc-rows{display:grid;gap:.6rem;margin:0}
+.pacc-rows div{display:flex;justify-content:space-between;gap:1.2rem;font-size:.78rem}
+.pacc-rows dt{color:var(--ink-mute);flex:0 0 auto}
+.pacc-rows dd{color:var(--navy);text-align:right;margin:0}
+
 @media (prefers-reduced-motion: reduce){
   .cart-drawer{transition:none}
   .cart-launch,.inq,.inq-scrim{animation:none}
-  .p-skeleton .p-img,.sk-bar{animation:none}
+  .p-skeleton .p-img,.p-skeleton .cc-img,.sk-bar{animation:none}
   .drop{transition:none}
   .pg-track{scroll-behavior:auto}
+  .pacc-content[data-state=open],.pacc-content[data-state=closed]{animation:none}
+  .cc-photo{transition:none}
 }
 
 /* ================================================================

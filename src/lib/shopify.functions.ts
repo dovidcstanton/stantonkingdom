@@ -15,6 +15,14 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { type Acquisition, type CatalogPayload, type SkCart, type SkProduct } from "./catalog";
+import { SAMPLE_CATALOG, sampleByHandle } from "./sample-catalog";
+
+/** The prototype's stand-in stock. Served ONLY when the SK_SAMPLE_CATALOG
+ *  environment flag is set AND no Shopify credentials exist — the flag lives
+ *  on the dev Worker and in local .dev.vars, never on production, so a
+ *  production credential mishap degrades to an empty catalogue exactly as it
+ *  does today rather than quietly exhibiting sample pieces. */
+const sampleMode = () => process.env.SK_SAMPLE_CATALOG === "1";
 
 const API_VERSION = "2025-01";
 
@@ -28,6 +36,8 @@ const METAFIELD_KEYS = [
   "stone_shape",
   "acquisition",
   "specification",
+  "product_code",
+  "details",
 ] as const;
 
 const METAFIELD_IDENTIFIERS = METAFIELD_KEYS.map((k) => `{namespace:"custom",key:"${k}"}`).join(
@@ -51,6 +61,7 @@ const PRODUCT_FIELDS = `
       node {
         id
         title
+        sku
         availableForSale
         price { amount currencyCode }
         compareAtPrice { amount currencyCode }
@@ -170,6 +181,25 @@ function toProduct(n: any): SkProduct {
   const compareAt = num(n.compareAtPriceRange?.minVariantPrice?.amount);
   const price = num(n.priceRange?.minVariantPrice?.amount);
 
+  // The house reference: the product_code metafield, or the first variant's
+  // SKU with any trailing size/variant suffix ("-65") trimmed away.
+  const code =
+    (mf.product_code ?? "").trim() ||
+    String(n.variants?.edges?.[0]?.node?.sku ?? "")
+      .replace(/-\d+$/, "")
+      .trim();
+
+  // custom.details is authored one row per line as "Label: value"; anything
+  // without a colon is skipped rather than rendered as a broken row.
+  const details = String(mf.details ?? "")
+    .split("\n")
+    .map((line): [string, string] | null => {
+      const at = line.indexOf(":");
+      if (at < 1) return null;
+      return [line.slice(0, at).trim(), line.slice(at + 1).trim()];
+    })
+    .filter((r): r is [string, string] => r !== null && Boolean(r[0]) && Boolean(r[1]));
+
   return {
     id: n.id,
     handle: n.handle,
@@ -182,6 +212,8 @@ function toProduct(n: any): SkProduct {
     style: mf.style ?? "",
     shape: mf.stone_shape ?? "",
     acquisition: readAcquisition(mf.acquisition ?? ""),
+    code,
+    details,
     price,
     // Only a genuine markdown counts; Shopify reports the compare-at as equal
     // to the price when the merchant never set one.
@@ -232,7 +264,10 @@ function toCart(c: any): SkCart {
  *  to leave in the store while the site is public. */
 export const fetchCatalog = createServerFn({ method: "GET" }).handler(
   async (): Promise<CatalogPayload> => {
-    if (!credentials()) return { configured: false, products: [] };
+    if (!credentials()) {
+      if (sampleMode()) return { configured: true, products: SAMPLE_CATALOG };
+      return { configured: false, products: [] };
+    }
 
     const data = await storefront<{ products: { edges: { node: unknown }[] } }>(
       `{ products(first: 250, sortKey: CREATED_AT, reverse: true) {
@@ -253,7 +288,7 @@ export const fetchCatalog = createServerFn({ method: "GET" }).handler(
 export const fetchPiece = createServerFn({ method: "GET" })
   .inputValidator((handle: string) => handle)
   .handler(async ({ data: handle }): Promise<SkProduct | null> => {
-    if (!credentials()) return null;
+    if (!credentials()) return sampleMode() ? sampleByHandle(handle) : null;
 
     const data = await storefront<{ product: unknown | null }>(
       `query Piece($handle: String!) {
