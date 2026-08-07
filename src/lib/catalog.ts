@@ -46,18 +46,32 @@ export const COLLECTION_TREE = [
 
 export const STYLES = ["Classic", "Trendsetting", "Vintage", "Uniquely Yours"] as const;
 
+/** Every cut the house recognises, in display order. Adding one here requires
+ *  adding it to the Shopify stone_shape metafield definition too. A product's
+ *  stone_shape may carry SEVERAL of these, comma-separated — a drop earring
+ *  can hold a marquise over a pear — see productShapes(). */
 export const SHAPES = [
   "Round",
   "Oval",
-  "Emerald",
   "Pear",
-  "Cushion",
+  "Emerald",
   "Radiant",
+  "Elongated Radiant",
+  "Cushion",
   "Princess",
   "Marquise",
   "Asscher",
   "Heart",
 ] as const;
+
+/** The shapes a piece belongs to. The metafield is a single line in the admin;
+ *  a comma makes it several memberships, so one piece can answer more than one
+ *  filter without duplicating the product. */
+export const productShapes = (p: { shape: string }) =>
+  p.shape
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 
 export const SORTS = [
   { v: "new", label: "Newest Arrivals" },
@@ -88,9 +102,16 @@ export const METAL_COLORS = ["White Gold", "Yellow Gold", "Rose Gold"] as const;
 export type MetalColor = (typeof METAL_COLORS)[number];
 export const METAL_PURITIES = ["14K Gold", "18K Gold", "Platinum"] as const;
 
+/** The third configuration axis: where the stone comes from. Like the metal
+ *  axes it is a Shopify product option ("Diamond Origin"), present only on
+ *  products that offer the choice. */
+export const DIAMOND_ORIGINS = ["Natural", "Lab-Grown"] as const;
+
 export const isMetalOption = (name: string) => name.trim().toLowerCase() === METAL_OPTION;
 export const isMetalColorOption = (name: string) =>
   /^metal[\s-]*colou?r$/.test(name.trim().toLowerCase());
+export const isOriginOption = (name: string) =>
+  /^diamond[\s-]*origin$/.test(name.trim().toLowerCase());
 
 const normalizeColor = (value: string): MetalColor | null => {
   const v = value.trim().toLowerCase();
@@ -106,33 +127,60 @@ const normalizeColor = (value: string): MetalColor | null => {
   );
 };
 
-/** Every (purity, colour) pair the product's variants actually offer, so the
- *  selectors can only ever lead somewhere real. Purities and colours come back
- *  in the house's canonical order regardless of admin entry order; a product
- *  with neither axis returns empty lists and draws neither control. */
-export function metalMatrix(variants: SkVariant[]) {
-  const pairs = new Set<string>();
+export type MetalCombo = {
+  origin: string | null;
+  purity: string | null;
+  color: MetalColor | null;
+  variant: SkVariant;
+};
+
+/** Every (origin, purity, colour) combination the product's variants actually
+ *  offer, so the selectors can only ever lead somewhere real. Axes come back
+ *  in the house's canonical order regardless of admin entry order; an axis no
+ *  variant carries returns an empty list and draws no control. */
+export function configMatrix(variants: SkVariant[]) {
+  const combos: MetalCombo[] = [];
+  const origins = new Set<string>();
   const purities = new Set<string>();
   const colors = new Set<MetalColor>();
   for (const v of variants) {
-    const purity = v.options.find((o) => isMetalOption(o.name))?.value.trim() ?? "";
+    const origin = v.options.find((o) => isOriginOption(o.name))?.value.trim() || null;
+    const purity = v.options.find((o) => isMetalOption(o.name))?.value.trim() || null;
     const rawColor = v.options.find((o) => isMetalColorOption(o.name))?.value ?? "";
     const color = rawColor ? normalizeColor(rawColor) : null;
+    if (origin) origins.add(origin);
     if (purity) purities.add(purity);
     if (color) colors.add(color);
-    if (purity || color) pairs.add(`${purity}|${color ?? ""}`);
+    if (origin || purity || color) combos.push({ origin, purity, color, variant: v });
   }
-  const orderedPurities = [
-    ...METAL_PURITIES.filter((p) => purities.has(p)),
-    ...[...purities].filter((p) => !(METAL_PURITIES as readonly string[]).includes(p)),
+  const order = (canon: readonly string[], present: Set<string>) => [
+    ...canon.filter((x) => present.has(x)),
+    ...[...present].filter((x) => !canon.includes(x)),
   ];
-  const orderedColors = METAL_COLORS.filter((c) => colors.has(c));
   return {
-    purities: orderedPurities,
-    colors: orderedColors,
-    has: (purity: string | null, color: MetalColor | null) =>
-      pairs.has(`${purity ?? ""}|${color ?? ""}`),
+    combos,
+    origins: order(DIAMOND_ORIGINS, origins),
+    purities: order(METAL_PURITIES, purities),
+    colors: METAL_COLORS.filter((c) => colors.has(c)),
+    /** Does any variant satisfy the given axes? Omit an axis to ignore it. */
+    some: (q: { origin?: string | null; purity?: string | null; color?: MetalColor | null }) =>
+      combos.some(
+        (c) =>
+          (q.origin === undefined || c.origin === q.origin) &&
+          (q.purity === undefined || c.purity === q.purity) &&
+          (q.color === undefined || c.color === q.color),
+      ),
   };
+}
+
+/** Whether the certification accordion applies: any stated stone at or above a
+ *  full carat. Reads the details rows and the spec line, so it follows the
+ *  product data rather than being asserted per piece. */
+export function needsCertification(p: { details: [string, string][]; spec: string }) {
+  const texts = [p.spec, ...p.details.map(([, v]) => v)];
+  return texts.some((t) =>
+    [...t.matchAll(/(\d+(?:\.\d+)?)\s*ct/gi)].some((m) => parseFloat(m[1]) >= 1),
+  );
 }
 
 /* -------------------------------------------------------- gallery grouping */
@@ -357,7 +405,7 @@ export function matchesSelection(
   if (sel.type !== ANY && p.type !== sel.type) return false;
   if (sel.style !== ANY && sel.style !== STYLE_MATCHES_EVERYTHING && p.style !== sel.style)
     return false;
-  if (shape !== "all" && p.shape !== shape) return false;
+  if (shape !== "all" && !productShapes(p).includes(shape)) return false;
   return true;
 }
 
@@ -369,10 +417,11 @@ export function sortProducts(items: SkProduct[], sort: string) {
   return out;
 }
 
-/** Only offer a shape filter for shapes actually present in the current grid.
- *  A row of ten shape buttons where eight lead to an empty result reads as a
- *  broken catalogue rather than a small one. */
+/** Shapes actually present in a set of pieces, multi-membership included.
+ *  The collection's shape row shows the FULL canon regardless — the selector
+ *  is a statement of what the house cuts — but search and future rails still
+ *  want to know what a given set actually holds. */
 export function availableShapes(items: SkProduct[]) {
-  const present = new Set(items.map((p) => p.shape).filter(Boolean));
+  const present = new Set(items.flatMap((p) => productShapes(p)));
   return SHAPES.filter((s) => present.has(s));
 }

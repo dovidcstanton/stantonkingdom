@@ -4491,99 +4491,203 @@ footer{background:var(--navy);padding:7.5rem 0 3rem;color:var(--ivory)}
 main.coll,
 main.piece{position:relative;z-index:1}
 
-/* ---- controls: layout toggle, then filters, one quiet row ---- */
-.cat-controls{display:flex;align-items:center;gap:.85rem;padding-top:1.15rem}
-.lay-toggle{
-  display:inline-flex;flex:0 0 auto;gap:.15rem;padding:.18rem;
-  background:#fff;border:1px solid var(--line);border-radius:999px;
+/* ---- the white room ----
+   The catalogue is the one part of the site set on true white: the pieces are
+   the colour, the page is the gallery wall. The ivory identity continues
+   everywhere else. The category bar goes white with it and marks the active
+   category with the same fine gold underline its hover already draws. */
+.coll,.piece{background:#fff}
+/* White to the fold and past it: a short category must not let the site's
+   ivory body show beneath the last card. */
+.coll{min-height:100vh}
+.catbar{background:#fff}
+.cat.sel>a{color:var(--navy)}
+.cat.sel>a::after{transform:scaleX(1)}
+/* Room for the floating concierge: the page ends well before the icon does,
+   so it can never sit over the last control a visitor needs. */
+.coll .wrap{padding-bottom:6rem}
+.piece-wrap{padding-bottom:6rem}
+
+/* ---- controls: Style, then Filter — two pieces of glass ---- */
+.cat-controls{display:flex;align-items:center;gap:.6rem;padding-top:1.05rem}
+.glass-pill{
+  display:inline-flex;align-items:center;gap:.5rem;
+  font-family:var(--sans);font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--navy);background:rgba(246,247,249,.7);
+  -webkit-backdrop-filter:blur(12px) saturate(1.2);
+  backdrop-filter:blur(12px) saturate(1.2);
+  border:1px solid rgba(19,42,94,.13);border-radius:999px;
+  padding:.58rem 1.05rem;cursor:pointer;
+  box-shadow:0 8px 22px -14px rgba(15,25,50,.3);
+  transition:border-color .3s,background .3s;
 }
-.lt-btn{
-  width:36px;height:30px;display:grid;place-items:center;
-  border:none;background:none;border-radius:999px;color:var(--ink-mute);
-  cursor:pointer;transition:background .3s,color .3s;
+.glass-pill:hover{border-color:rgba(174,140,76,.5)}
+.pill-chev{width:9px;height:6px;color:var(--ink-mute)}
+.style-pop{
+  z-index:220;display:flex;flex-direction:column;min-width:11rem;
+  background:rgba(255,255,255,.92);
+  -webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+  border:1px solid rgba(19,42,94,.1);border-radius:16px;
+  box-shadow:0 24px 60px -24px rgba(15,25,50,.35);
+  padding:.4rem;
 }
-.lt-btn svg{width:14px;height:14px;fill:currentColor}
-.lt-btn.on{background:var(--navy);color:var(--ivory)}
-.cat-filter{
-  display:flex;gap:.4rem;overflow-x:auto;scrollbar-width:none;
-  -webkit-overflow-scrolling:touch;min-width:0;
+.style-opt{
+  text-align:left;font-family:var(--sans);font-size:.62rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--ink-soft);background:none;border:none;
+  border-radius:10px;padding:.65rem .8rem;cursor:pointer;
+  transition:background .25s,color .25s;
 }
-.cat-filter::-webkit-scrollbar{display:none}
-.cf-chip{
-  flex:0 0 auto;font-family:var(--sans);font-size:.56rem;letter-spacing:.16em;
-  text-transform:uppercase;color:var(--ink-soft);background:none;
-  border:1px solid var(--line);border-radius:999px;padding:.5rem .85rem;
-  cursor:pointer;transition:border-color .3s,color .3s,background .3s;
+.style-opt:hover{background:rgba(19,42,94,.05)}
+.style-opt.on{color:var(--navy);background:rgba(174,140,76,.1)}
+
+/* ---- the shape row: the canon of cuts, unboxed, swipeable ---- */
+.shape-row{
+  display:flex;align-items:flex-end;gap:1.15rem;
+  overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;
+  padding:1.05rem 0 .35rem;
 }
-.cf-chip.on{border-color:var(--gold);color:var(--navy);background:rgba(174,140,76,.08)}
-.cat-shapes{
-  display:flex;gap:.55rem;overflow-x:auto;scrollbar-width:none;
-  padding:.85rem 0 .1rem;-webkit-overflow-scrolling:touch;
+.shape-row::-webkit-scrollbar{display:none}
+.shp{
+  flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:.34rem;
+  background:none;border:none;padding:.2rem .05rem;cursor:pointer;
+  color:var(--ink-soft);transition:color .3s;
 }
-.cat-shapes::-webkit-scrollbar{display:none}
-.cat-shapes .sh{flex:0 0 auto}
+.shp svg{width:30px;height:30px;display:block}
+.shp svg *{
+  fill:none;stroke:currentColor;stroke-width:1;
+  stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke;
+}
+.shp-name{
+  font-family:var(--sans);font-size:.48rem;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--ink-mute);white-space:nowrap;
+  border-bottom:1px solid transparent;padding-bottom:2px;
+  transition:color .3s,border-color .3s;
+}
+.shp.on{color:var(--gold)}
+.shp.on .shp-name{color:var(--navy);border-color:var(--gold)}
+.shp:hover{color:var(--navy)}
+/* "All" is a word, not a diagram — bottom-aligned with the labels. */
+.shp-all{min-height:46px;justify-content:flex-end}
+.shp-all .shp-name{font-size:.52rem}
+
+/* ---- the Filter sheet ---- */
+.sheet-scrim{position:fixed;inset:0;z-index:298;background:rgba(8,14,30,.42)}
+.sheet{
+  position:fixed;left:0;right:0;bottom:0;z-index:299;
+  margin:0 auto;max-width:520px;
+  background:rgba(255,255,255,.93);
+  -webkit-backdrop-filter:blur(22px) saturate(1.2);
+  backdrop-filter:blur(22px) saturate(1.2);
+  border:1px solid rgba(19,42,94,.08);border-bottom:none;
+  border-radius:22px 22px 0 0;
+  box-shadow:0 -22px 60px -28px rgba(15,25,50,.4);
+  padding:.65rem 1.35rem calc(1.3rem + env(safe-area-inset-bottom,0px));
+  outline:none;
+}
+.sheet-grip{width:38px;height:4px;border-radius:2px;background:rgba(19,42,94,.16);margin:0 auto .85rem}
+.sheet-title{
+  font-family:var(--serif);font-weight:400;font-size:1.15rem;color:var(--navy);
+  margin-bottom:.9rem;
+}
+.sheet-label{
+  font-family:var(--sans);font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--ink-mute);margin:.9rem 0 .5rem;
+}
+.sheet-opts{display:flex;flex-wrap:wrap;gap:.45rem}
+.sheet-opt{
+  font-family:var(--sans);font-size:.62rem;letter-spacing:.1em;
+  color:var(--ink-soft);background:rgba(246,247,249,.8);
+  border:1px solid rgba(19,42,94,.12);border-radius:999px;
+  padding:.6rem 1rem;cursor:pointer;
+  transition:border-color .3s,color .3s,background .3s;
+}
+.sheet-opt.on{color:var(--navy);border-color:var(--gold);background:rgba(174,140,76,.1)}
+.sheet-actions{display:flex;align-items:center;gap:1rem;margin-top:1.4rem}
+.sheet-clear{
+  background:none;border:none;cursor:pointer;
+  font-family:var(--sans);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--ink-mute);text-decoration:underline;text-underline-offset:3px;
+}
+.sheet-apply{flex:1}
 
 /* ---- the two layouts. One array feeds both; .cc-wide is a property of a
    POSITION in the editorial rhythm (every third card), never of a piece, so
-   nothing is ever listed twice to fill the large slot. ---- */
-.cat-flow{display:grid;grid-template-columns:1fr 1fr;gap:.9rem;padding:1.2rem 0 5rem}
+   nothing is ever listed twice to fill the large slot. The generous row gap
+   plus each frame's reserved margin is what guarantees a floating capsule
+   never touches the photograph below it. ---- */
+.cat-flow{
+  display:grid;grid-template-columns:1fr 1fr;
+  column-gap:.9rem;row-gap:1.5rem;padding:1.3rem 0 2rem;
+}
 .cat-mosaic .cc-wide{grid-column:1 / -1}
-.cat-mosaic .cc-wide .cc-img{aspect-ratio:4/3}
-.cat-mosaic .cc-wide .cc-body h3{font-size:1.16rem}
-/* The mosaic is a phone's promenade; wider screens read as the standard
-   grid, and the toggle that switches the two stays out of their way. */
+.cat-mosaic .cc-wide .cc-cap h3{font-size:1.12rem}
+.cat-mosaic .cc-wide .cc-cap p{font-size:.62rem}
 @media(min-width:761px){
-  .cat-flow{grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1.15rem}
+  .cat-flow{grid-template-columns:repeat(auto-fill,minmax(250px,1fr));column-gap:1.15rem;row-gap:1.9rem}
   .cat-mosaic .cc-wide{grid-column:auto}
-  .cat-mosaic .cc-wide .cc-img{aspect-ratio:1/1}
-  .cat-mosaic .cc-wide .cc-body h3{font-size:1rem}
-  .lay-toggle{display:none}
+  .cat-mosaic .cc-wide .cc-cap h3{font-size:.95rem}
+  .cat-mosaic .cc-wide .cc-cap p{font-size:.56rem}
 }
 
-/* ---- the card: photograph, name, one quiet line, and Inquire ---- */
-.cat-card{display:flex;flex-direction:column;gap:.55rem;position:relative}
-.cc-img{
-  position:relative;aspect-ratio:1/1;border-radius:16px;overflow:hidden;
-  background:var(--navy);
-}
+/* ---- the card: a portrait photograph and its floating pane of glass ----
+   The photograph is 4:5, top corners kept close to square so it reads as an
+   editorial plate rather than an ecommerce tile; only the bottom softens.
+   The capsule crosses the photograph's lower edge — a third of it over the
+   image, the rest continuing onto the white page — and is its own object:
+   translucent grey-white, genuinely blurred where the platform can, a fine
+   light along its edge and a soft shadow that still reads against #fff. */
+.cat-card{position:relative}
+.cc-frame{position:relative;margin-bottom:3rem}
 .cc-photo{
-  position:absolute;inset:0;display:block;
-  background-size:cover;background-position:center;
-  transform:scale(1.02);transition:transform 5s ease;
+  display:block;aspect-ratio:4/5;width:100%;
+  background-size:cover;background-position:center;background-color:#f4f4f6;
+  border-radius:3px 3px 16px 16px;
 }
-.cat-card:hover .cc-photo{transform:scale(1.08)}
-.cc-body{display:block;padding:0 .15rem}
-.cc-body h3{
-  font-family:var(--serif);font-weight:400;font-size:.98rem;line-height:1.3;
+.cc-cap{
+  position:absolute;left:4%;width:92%;bottom:0;transform:translateY(66%);
+  z-index:2;display:block;text-align:center;
+  padding:.62rem 1rem .68rem;border-radius:999px;
+  background:linear-gradient(150deg,rgba(252,252,254,.72),rgba(238,240,244,.5));
+  -webkit-backdrop-filter:blur(14px) saturate(1.25);
+  backdrop-filter:blur(14px) saturate(1.25);
+  border:1px solid rgba(255,255,255,.75);
+  box-shadow:
+    0 14px 34px -16px rgba(15,25,50,.28),
+    inset 0 1px 0 rgba(255,255,255,.7);
+}
+.cc-cap h3{
+  font-family:var(--serif);font-weight:400;font-size:.92rem;line-height:1.25;
   color:var(--navy);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
-.cc-sub{
-  font-family:var(--sans);font-size:.64rem;letter-spacing:.05em;
-  color:var(--ink-mute);margin-top:.2rem;
+.cc-cap p{
+  font-family:var(--sans);font-size:.56rem;letter-spacing:.08em;line-height:1.5;
+  color:var(--ink-soft);margin-top:.14rem;
 }
-.p-skeleton .cc-img{background:var(--paper-cream);animation:skpulse 1.6s ease-in-out infinite}
+.p-skeleton .cc-photo{animation:skpulse 1.6s ease-in-out infinite}
 
-/* Small to the eye, generous to the thumb: the visual pill stays discreet and
-   the ::after quietly grows the tap target past 44px. Frost, not a slab —
-   blur and a hairline of light over the photograph. */
-.cc-inquire{
-  position:absolute;right:.6rem;bottom:.6rem;z-index:2;
-  font-family:var(--sans);font-size:.52rem;letter-spacing:.22em;text-transform:uppercase;
-  color:#fff;background:rgba(15,25,50,.34);
-  -webkit-backdrop-filter:blur(10px) saturate(1.35);
-  backdrop-filter:blur(10px) saturate(1.35);
-  border:1px solid rgba(255,255,255,.38);border-radius:999px;
-  padding:.5rem .85rem;cursor:pointer;
+/* The word Inquire, set small in the photograph's upper corner. The visible
+   type stays tiny; the ::after quietly grows the tap target past 44px. */
+.cc-inq{
+  position:absolute;top:.6rem;right:.65rem;z-index:2;
+  font-family:var(--sans);font-size:.5rem;letter-spacing:.2em;text-transform:uppercase;
+  color:#fff;background:rgba(15,25,50,.26);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.3);border-radius:999px;
+  padding:.28rem .55rem;cursor:pointer;
   transition:background .3s,border-color .3s;
 }
-.cc-inquire::after{content:'';position:absolute;inset:-9px;border-radius:999px}
-.cc-inquire:hover{background:rgba(174,140,76,.6);border-color:rgba(255,255,255,.65)}
+.cc-inq::after{content:'';position:absolute;inset:-12px}
+.cc-inq:hover{background:rgba(174,140,76,.55);border-color:rgba(255,255,255,.55)}
 
 /* ---- the showroom rail ---- */
-/* Edge to edge on a phone: the photographs escape the page column and meet
-   the screen's own edges, one aligned slide per swipe, nothing between them. */
+/* Nearly the full page width on a phone: the photographs escape the column
+   and stop a breath short of the screen edges, one aligned slide per swipe,
+   nothing between them. The backdrop behind a loading frame is neutral grey,
+   never a white flash. */
+.rail-main{background:#f2f3f5}
 @media(max-width:900px){
-  .rail-main{margin-inline:calc(50% - 50vw);border-radius:0}
+  .rail-main{margin-inline:calc(50% - 50vw + 10px);border-radius:14px;overflow:hidden}
 }
 .rail-track{
   overscroll-behavior-x:contain;
@@ -4620,7 +4724,47 @@ main.piece{position:relative;z-index:1}
   font-size:.66rem;font-family:var(--sans);letter-spacing:.14em;
   text-transform:uppercase;color:var(--ink-mute);margin-left:.8rem;
 }
-.metal-colors{display:flex;align-items:center;gap:.85rem;margin:1.15rem 0 .35rem}
+/* ---- the three configuration controls ----
+   Origin and metal are animated segmented glass capsules: one indicator
+   pane slides between equal segments (--seg-n segments, --seg-i active), so
+   the active background glides rather than jumps. Colour stays circular
+   swatches. All three read as one coordinated set of glass. */
+.piece-config{display:flex;flex-direction:column;gap:1.05rem;margin:1.3rem 0 1.4rem}
+.cfg-row{display:flex;flex-direction:column;gap:.45rem}
+.cfg-label{
+  font-family:var(--sans);font-size:.54rem;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--ink-mute);
+}
+.cfg-note{
+  font-family:var(--sans);font-size:.6rem;letter-spacing:.04em;color:var(--ink-mute);
+  margin-top:.35rem;
+}
+.seg{
+  position:relative;display:grid;grid-template-columns:repeat(var(--seg-n,2),1fr);
+  padding:.2rem;border-radius:999px;
+  background:rgba(246,247,249,.75);
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  border:1px solid rgba(19,42,94,.12);
+  box-shadow:0 8px 22px -16px rgba(15,25,50,.3);
+}
+.seg-glide{
+  position:absolute;top:.2rem;bottom:.2rem;left:.2rem;
+  width:calc((100% - .4rem) / var(--seg-n,2));
+  transform:translateX(calc(var(--seg-i,0) * 100%));
+  transition:transform .32s cubic-bezier(.32,.72,.32,1);
+  border-radius:999px;background:var(--navy);
+  box-shadow:0 4px 12px -4px rgba(11,23,48,.45);
+}
+.seg-opt{
+  position:relative;z-index:1;border:none;background:none;cursor:pointer;
+  font-family:var(--sans);font-size:.6rem;letter-spacing:.08em;white-space:nowrap;
+  color:var(--ink-soft);padding:.52rem .4rem;border-radius:999px;
+  transition:color .25s;
+}
+.seg-opt.on{color:var(--ivory)}
+.seg-opt:disabled{opacity:.4;cursor:default}
+
+.metal-colors{display:flex;align-items:center;gap:.85rem;padding:.1rem 0}
 .mc-swatch{
   position:relative;width:26px;height:26px;border-radius:50%;border:none;
   cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,.14);
@@ -4633,30 +4777,20 @@ main.piece{position:relative;z-index:1}
   font-family:var(--sans);font-size:.66rem;letter-spacing:.1em;color:var(--ink-soft);
   margin-left:.15rem;
 }
-.metal-purity{display:flex;align-items:center;gap:.8rem;margin:.75rem 0 1.25rem;flex-wrap:wrap}
-.mp-label{
-  font-family:var(--sans);font-size:.56rem;letter-spacing:.22em;
-  text-transform:uppercase;color:var(--ink-soft);
+/* Primary action, then the one quiet way to a person, then the promise. */
+.piece-actions .btn-solid{width:100%}
+.pa-inquire{
+  border:none;background:none;padding:.3rem 0;cursor:pointer;align-self:center;
+  font-family:var(--sans);font-size:.64rem;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--ink-soft);text-decoration:underline;text-underline-offset:4px;
+  text-decoration-color:rgba(174,140,76,.6);transition:color .3s;
 }
-.mp-seg{
-  display:inline-flex;gap:.15rem;padding:.18rem;
-  background:#fff;border:1px solid var(--line);border-radius:999px;
+.pa-inquire:hover{color:var(--navy)}
+.made-line{
+  font-family:var(--sans);font-size:.72rem;letter-spacing:.03em;line-height:1.6;
+  color:var(--ink-soft);margin:.9rem 0 .2rem;
 }
-.mp-opt{
-  border:none;background:none;border-radius:999px;padding:.44rem .8rem;
-  font-family:var(--sans);font-size:.6rem;letter-spacing:.08em;color:var(--ink-soft);
-  cursor:pointer;transition:background .3s,color .3s;white-space:nowrap;
-}
-.mp-opt.sel{background:var(--navy);color:var(--ivory)}
-
-.btn-wa{width:100%}
-.pa-quiet{
-  border:none;background:none;padding:.2rem 0;cursor:pointer;
-  font-family:var(--sans);font-size:.66rem;letter-spacing:.05em;
-  color:var(--ink-mute);text-decoration:underline;text-underline-offset:3px;
-  transition:color .3s;
-}
-.pa-quiet:hover{color:var(--navy)}
+.pacc-cert{font-size:.78rem;line-height:1.65;color:var(--ink-soft)}
 
 /* ---- the two accordions: thin rules, one quiet chevron ---- */
 .pacc{margin-top:1.7rem;border-top:1px solid var(--line)}
@@ -4677,23 +4811,30 @@ main.piece{position:relative;z-index:1}
 @keyframes paccUp{from{height:var(--radix-accordion-content-height)}to{height:0}}
 .pacc-inner{padding:0 0 1.25rem}
 .pacc-inner .piece-copy{margin:0}
-.pacc-made{
-  margin-top:.95rem;font-family:var(--sans);font-size:.7rem;
-  letter-spacing:.03em;color:var(--ink-mute);
-}
 .pacc-rows{display:grid;gap:.6rem;margin:0}
 .pacc-rows div{display:flex;justify-content:space-between;gap:1.2rem;font-size:.78rem}
 .pacc-rows dt{color:var(--ink-mute);flex:0 0 auto}
 .pacc-rows dd{color:var(--navy);text-align:right;margin:0}
 
+/* Glass needs blur to stay legible at these tints; where the platform has no
+   backdrop-filter the same panes simply become more opaque — still pale
+   grey-white glass to the eye, never see-through text. */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  .cc-cap{background:linear-gradient(150deg,rgba(252,252,254,.94),rgba(240,242,246,.9))}
+  .sheet{background:rgba(255,255,255,.97)}
+  .glass-pill{background:rgba(246,247,249,.95)}
+  .style-pop{background:rgba(255,255,255,.98)}
+  .seg{background:rgba(246,247,249,.95)}
+}
+
 @media (prefers-reduced-motion: reduce){
   .cart-drawer{transition:none}
   .cart-launch,.inq,.inq-scrim{animation:none}
-  .p-skeleton .p-img,.p-skeleton .cc-img,.sk-bar{animation:none}
+  .p-skeleton .p-img,.p-skeleton .cc-photo,.sk-bar{animation:none}
   .drop{transition:none}
   .pg-track{scroll-behavior:auto}
   .pacc-content[data-state=open],.pacc-content[data-state=closed]{animation:none}
-  .cc-photo{transition:none}
+  .seg-glide{transition:none}
 }
 
 /* ================================================================

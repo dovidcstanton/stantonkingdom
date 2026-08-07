@@ -5,35 +5,39 @@
  *  selection is drilled — the header, the controls and the grid are identical,
  *  and keeping them identical is the point.
  *
- *  Two ways of laying out the same pieces, chosen by the toggle at the top:
+ *  The screen keeps exactly three immediate controls — Style, the shape row,
+ *  and Filter — over a white page. Everything secondary (layout mode, sort)
+ *  lives inside the Filter sheet. Two layouts share one array of pieces:
  *
- *  EDITORIAL — the default — runs a repeating rhythm of two cards side by
- *  side and then one full-width card: small, small, large, and again. The
- *  large position is pure presentation: it is whichever piece falls third in
- *  the current sort, drawn bigger, not a separate "featured" list — the array
- *  is mapped once, keyed by id, so nothing can appear twice.
+ *  EDITORIAL — the default — runs a repeating rhythm of two portrait cards
+ *  side by side and then one full-width card. The large position is pure
+ *  presentation: whichever piece falls third in the current sort is drawn
+ *  bigger. The array is mapped once, keyed by id, so nothing appears twice.
  *
- *  COMPACT is a plain two-column grid, four pieces to a phone screen, for
- *  visitors who want the overview rather than the promenade. */
+ *  COMPACT is a plain two-column grid for visitors who want the overview
+ *  rather than the promenade. */
 
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import * as Popover from "@radix-ui/react-popover";
+import { Drawer } from "vaul";
 
 import { fetchCatalog } from "@/lib/shopify.functions";
 import {
+  SHAPES,
   SORTS,
   STYLES,
   STYLE_MATCHES_EVERYTHING,
-  availableShapes,
   money,
+  productShapes,
   sortProducts,
   type SkProduct,
 } from "@/lib/catalog";
-import { whatsappForPiece } from "@/lib/social";
 import { CategoryBar } from "@/components/CategoryBar";
+import { InquiryDialog } from "@/components/InquiryDialog";
+import { PieceCard } from "@/components/PieceCard";
 import { ShapeMark } from "@/components/ShapeMark";
-import { SiteFooter } from "@/components/SiteFooter";
 
 type Layout = "editorial" | "grid";
 
@@ -50,9 +54,17 @@ export function CollectionView({
   const [shape, setShape] = useState<string | null>(null);
   const [sort, setSort] = useState<string>("new");
   // Seeded by the menu's third drill level (?style=…) and then owned by the
-  // chips on the page — the chip row is the one control, whichever door the
-  // visitor came in through.
+  // Style control on the page, whichever door the visitor came in through.
   const [styleFilter, setStyleFilter] = useState<string | null>(style);
+  const [styleOpen, setStyleOpen] = useState(false);
+
+  // The Filter sheet edits a draft and commits on Apply — closing it without
+  // applying leaves the grid exactly as it was.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [draftLayout, setDraftLayout] = useState<Layout>(layout);
+  const [draftSort, setDraftSort] = useState<string>(sort);
+
+  const [inquiring, setInquiring] = useState<SkProduct | null>(null);
 
   const { data, isPending, isError } = useQuery({
     queryKey: ["catalog"],
@@ -62,8 +74,6 @@ export function CollectionView({
 
   const products = useMemo(() => data?.products ?? [], [data]);
 
-  // Everything in this category/type, before shape narrows it — the shape row
-  // is built from this so it only ever offers shapes that lead somewhere.
   const inSelection = useMemo(
     () =>
       products.filter(
@@ -79,12 +89,10 @@ export function CollectionView({
     [products, category, type, styleFilter],
   );
 
-  const shapes = useMemo(() => availableShapes(inSelection), [inSelection]);
-
   const items = useMemo(
     () =>
       sortProducts(
-        inSelection.filter((p) => !shape || p.shape === shape),
+        inSelection.filter((p) => !shape || productShapes(p).includes(shape)),
         sort,
       ),
     [inSelection, shape, sort],
@@ -93,6 +101,12 @@ export function CollectionView({
   const heading = type ?? category ?? "All Pieces";
   const unreachable = isError || data?.configured === false;
   const gridClass = layout === "editorial" ? "cat-flow cat-mosaic" : "cat-flow cat-compact";
+
+  const openSheet = () => {
+    setDraftLayout(layout);
+    setDraftSort(sort);
+    setSheetOpen(true);
+  };
 
   return (
     <>
@@ -109,98 +123,87 @@ export function CollectionView({
                 </span>
               ) : null}
             </h1>
-            {items.length > 1 ? (
-              <select
-                className="coll-sort"
-                value={sort}
-                onChange={(e) => setSort(e.target.value)}
-                aria-label="Sort pieces"
-              >
-                {SORTS.map((s) => (
-                  <option key={s.v} value={s.v}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            ) : null}
           </div>
 
-          {/* Layout first, filters immediately after — one quiet row. */}
+          {/* Style, then the shape row, then Filter — the three immediate
+              controls, everything else behind the third. */}
           <div className="cat-controls">
-            <div className="lay-toggle" role="group" aria-label="Layout">
-              <button
-                className={"lt-btn" + (layout === "editorial" ? " on" : "")}
-                onClick={() => setLayout("editorial")}
-                aria-pressed={layout === "editorial"}
-                aria-label="Editorial layout"
-                title="Editorial"
-              >
-                <svg viewBox="0 0 16 16" aria-hidden="true">
-                  <rect x="1" y="1" width="6.4" height="5.4" rx="1.2" />
-                  <rect x="8.6" y="1" width="6.4" height="5.4" rx="1.2" />
-                  <rect x="1" y="8.2" width="14" height="6.8" rx="1.2" />
+            <Popover.Root open={styleOpen} onOpenChange={setStyleOpen}>
+              <Popover.Trigger className="glass-pill" aria-label="Filter by style">
+                {styleFilter ?? "Style"}
+                <svg className="pill-chev" viewBox="0 0 10 6" aria-hidden="true">
+                  <path
+                    d="M1 1.2 5 5 9 1.2"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                  />
                 </svg>
-              </button>
-              <button
-                className={"lt-btn" + (layout === "grid" ? " on" : "")}
-                onClick={() => setLayout("grid")}
-                aria-pressed={layout === "grid"}
-                aria-label="Compact grid layout"
-                title="Compact"
-              >
-                <svg viewBox="0 0 16 16" aria-hidden="true">
-                  <rect x="1" y="1" width="6.4" height="6.4" rx="1.2" />
-                  <rect x="8.6" y="1" width="6.4" height="6.4" rx="1.2" />
-                  <rect x="1" y="8.6" width="6.4" height="6.4" rx="1.2" />
-                  <rect x="8.6" y="8.6" width="6.4" height="6.4" rx="1.2" />
-                </svg>
-              </button>
-            </div>
+              </Popover.Trigger>
+              <Popover.Portal>
+                <Popover.Content className="style-pop" sideOffset={8} align="start">
+                  <button
+                    className={"style-opt" + (styleFilter === null ? " on" : "")}
+                    onClick={() => {
+                      setStyleFilter(null);
+                      setStyleOpen(false);
+                    }}
+                  >
+                    All Styles
+                  </button>
+                  {STYLES.map((s) => (
+                    <button
+                      key={s}
+                      className={"style-opt" + (styleFilter === s ? " on" : "")}
+                      onClick={() => {
+                        setStyleFilter(styleFilter === s ? null : s);
+                        setStyleOpen(false);
+                      }}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </Popover.Content>
+              </Popover.Portal>
+            </Popover.Root>
 
-            <div className="cat-filter" role="group" aria-label="Filter by style">
-              <button
-                className={"cf-chip" + (styleFilter === null ? " on" : "")}
-                onClick={() => setStyleFilter(null)}
-                aria-pressed={styleFilter === null}
-              >
-                All Styles
-              </button>
-              {STYLES.filter((s) => s !== STYLE_MATCHES_EVERYTHING).map((s) => (
-                <button
-                  key={s}
-                  className={"cf-chip" + (styleFilter === s ? " on" : "")}
-                  onClick={() => setStyleFilter(styleFilter === s ? null : s)}
-                  aria-pressed={styleFilter === s}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
+            <button className="glass-pill" onClick={openSheet}>
+              Filter
+              <svg className="pill-chev" viewBox="0 0 12 10" aria-hidden="true">
+                <path
+                  d="M1 2h10M3 5h6M5 8h2"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
           </div>
 
-          {shapes.length > 1 ? (
-            <div className="cat-shapes" role="group" aria-label="Filter by stone shape">
+          {/* The full canon of cuts, always — the row states what the house
+              works in. Swipes sideways; nothing is boxed. */}
+          <div className="shape-row" role="group" aria-label="Filter by diamond shape">
+            <button
+              className={"shp shp-all" + (shape === null ? " on" : "")}
+              onClick={() => setShape(null)}
+              aria-pressed={shape === null}
+            >
+              <span className="shp-name">All</span>
+            </button>
+            {SHAPES.map((s) => (
               <button
-                className={"sh" + (shape === null ? " sel" : "")}
-                onClick={() => setShape(null)}
-                aria-pressed={shape === null}
+                key={s}
+                className={"shp" + (shape === s ? " on" : "")}
+                onClick={() => setShape(shape === s ? null : s)}
+                aria-pressed={shape === s}
               >
-                <ShapeMark shape={null} />
-                <span>All</span>
+                <ShapeMark shape={s} />
+                <span className="shp-name">{s}</span>
               </button>
-              {shapes.map((s) => (
-                <button
-                  key={s}
-                  className={"sh" + (shape === s ? " sel" : "")}
-                  onClick={() => setShape(shape === s ? null : s)}
-                  aria-pressed={shape === s}
-                >
-                  <ShapeMark shape={s} />
-                  <span>{s}</span>
-                </button>
-              ))}
-            </div>
-          ) : null}
+            ))}
+          </div>
 
           {isPending ? (
             <div className={gridClass} aria-busy="true">
@@ -213,10 +216,8 @@ export function CollectionView({
                   }
                   aria-hidden="true"
                 >
-                  <div className="cc-img" />
-                  <div className="cc-body">
-                    <span className="sk-bar w70" />
-                    <span className="sk-bar w40" />
+                  <div className="cc-frame">
+                    <div className="cc-photo" />
                   </div>
                 </div>
               ))}
@@ -228,10 +229,10 @@ export function CollectionView({
                   key={p.id}
                   piece={p}
                   // The editorial rhythm: every third card takes the full row.
-                  // Index-derived, so it is a property of the position, never
-                  // of the piece — resort the grid and the large slots simply
-                  // fall on whoever stands third.
+                  // Index-derived — a property of the position, never of the
+                  // piece — so no product is ever duplicated to fill it.
                   wide={layout === "editorial" && i % 3 === 2}
+                  onInquire={setInquiring}
                 />
               ))}
             </div>
@@ -248,56 +249,76 @@ export function CollectionView({
         </div>
       </main>
 
-      <SiteFooter />
+      <Drawer.Root open={sheetOpen} onOpenChange={setSheetOpen}>
+        <Drawer.Portal>
+          <Drawer.Overlay className="sheet-scrim" />
+          <Drawer.Content className="sheet">
+            <div className="sheet-grip" aria-hidden="true" />
+            <Drawer.Title className="sheet-title">Refine</Drawer.Title>
+
+            <p className="sheet-label">Layout</p>
+            <div className="sheet-opts">
+              <button
+                className={"sheet-opt" + (draftLayout === "editorial" ? " on" : "")}
+                onClick={() => setDraftLayout("editorial")}
+                aria-pressed={draftLayout === "editorial"}
+              >
+                Editorial mosaic
+              </button>
+              <button
+                className={"sheet-opt" + (draftLayout === "grid" ? " on" : "")}
+                onClick={() => setDraftLayout("grid")}
+                aria-pressed={draftLayout === "grid"}
+              >
+                Compact grid
+              </button>
+            </div>
+
+            <p className="sheet-label">Sort</p>
+            <div className="sheet-opts">
+              {SORTS.map((s) => (
+                <button
+                  key={s.v}
+                  className={"sheet-opt" + (draftSort === s.v ? " on" : "")}
+                  onClick={() => setDraftSort(s.v)}
+                  aria-pressed={draftSort === s.v}
+                >
+                  {s.v === "new"
+                    ? "Newest arrivals"
+                    : s.v === "lo"
+                      ? "Price: low to high"
+                      : "Price: high to low"}
+                </button>
+              ))}
+            </div>
+
+            <div className="sheet-actions">
+              <button
+                className="sheet-clear"
+                onClick={() => {
+                  setDraftLayout("editorial");
+                  setDraftSort("new");
+                }}
+              >
+                Clear
+              </button>
+              <button
+                className="btn btn-solid sheet-apply"
+                onClick={() => {
+                  setLayout(draftLayout);
+                  setSort(draftSort);
+                  setSheetOpen(false);
+                }}
+              >
+                Apply
+              </button>
+            </div>
+          </Drawer.Content>
+        </Drawer.Portal>
+      </Drawer.Root>
+
+      {inquiring ? <InquiryDialog piece={inquiring} onClose={() => setInquiring(null)} /> : null}
     </>
-  );
-}
-
-/** One piece. The whole card is a doorway to the piece's page — image and
- *  caption are both real links — and the only other thing on it is the
- *  frosted Inquire control, a true sibling of the link so a tap on it goes to
- *  WhatsApp and nowhere else. */
-function PieceCard({ piece, wide }: { piece: SkProduct; wide?: boolean }) {
-  const cover = piece.images[0];
-
-  const inquire = () => {
-    window.open(
-      whatsappForPiece({
-        name: piece.name,
-        code: piece.code,
-        url: `${window.location.origin}/piece/${piece.handle}`,
-      }),
-      "_blank",
-      "noopener,noreferrer",
-    );
-  };
-
-  return (
-    <article className={"cat-card" + (wide ? " cc-wide" : "")}>
-      <div className="cc-img">
-        <Link
-          to="/piece/$handle"
-          params={{ handle: piece.handle }}
-          className="cc-photo"
-          style={cover ? { backgroundImage: `url('${cover.url}')` } : undefined}
-          aria-label={piece.name}
-        />
-        {piece.soldOut ? <span className="p-flag">Acquired</span> : null}
-        <button
-          className="cc-inquire"
-          onClick={inquire}
-          aria-label={`Inquire about ${piece.name} on WhatsApp`}
-        >
-          Inquire
-        </button>
-      </div>
-      <Link to="/piece/$handle" params={{ handle: piece.handle }} className="cc-body">
-        <h3>{piece.name}</h3>
-        <p className="cc-sub">
-          From {money(piece.price, piece.currency)} <span aria-hidden="true">•</span> Customizable
-        </p>
-      </Link>
-    </article>
   );
 }
 

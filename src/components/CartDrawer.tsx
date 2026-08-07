@@ -122,12 +122,22 @@ export function CartDrawer() {
             <p className="cart-note">
               Shipping, insurance and any duties are calculated at checkout.
             </p>
-            <a className="btn btn-gold cart-go" href={cart.checkoutUrl}>
-              Proceed to Secure Checkout
-            </a>
-            <p className="cart-trust">
-              Payment is handled by Shopify. We never see your card details.
-            </p>
+            {cart.checkoutUrl ? (
+              <>
+                <a className="btn btn-gold cart-go" href={cart.checkoutUrl}>
+                  Proceed to Secure Checkout
+                </a>
+                <p className="cart-trust">
+                  Payment is handled by Shopify. We never see your card details.
+                </p>
+              </>
+            ) : (
+              /* The sample basket has no Shopify cart behind it — say so
+                 rather than presenting a checkout that would go nowhere. */
+              <p className="cart-trust">
+                Preview basket — checkout opens once the live collection is connected.
+              </p>
+            )}
           </footer>
         ) : null}
       </aside>

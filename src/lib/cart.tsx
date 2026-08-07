@@ -16,9 +16,93 @@ import {
 } from "react";
 
 import { addToCart, fetchCart, setCartLineQuantity } from "./shopify.functions";
+import { SAMPLE_CATALOG } from "./sample-catalog";
 import type { SkCart } from "./catalog";
 
 const STORAGE_KEY = "sk_cart_id";
+
+/* ---- the sample basket ----
+   The prototype's pieces have no Shopify variants behind them, so their ids
+   ("sample:…") can never reach the Storefront cart API. They get a basket of
+   their own: held in localStorage, shaped exactly like a Shopify cart, so the
+   drawer renders it without knowing the difference. Its checkoutUrl is empty,
+   which the drawer shows as a preview basket rather than a way to pay. Real
+   variant ids never enter this path, and production never mints sample ids. */
+const SAMPLE_CART_KEY = "sk_sample_cart";
+const isSampleVariant = (id: string) => id.startsWith("sample:");
+const isSampleLine = (id: string) => id.startsWith("sample-line:");
+
+const readSampleCart = (): SkCart | null => {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(SAMPLE_CART_KEY);
+    return raw ? (JSON.parse(raw) as SkCart) : null;
+  } catch {
+    return null;
+  }
+};
+
+const writeSampleCart = (cart: SkCart | null) => {
+  if (typeof window === "undefined") return;
+  try {
+    if (cart && cart.lines.length)
+      window.localStorage.setItem(SAMPLE_CART_KEY, JSON.stringify(cart));
+    else window.localStorage.removeItem(SAMPLE_CART_KEY);
+  } catch {
+    /* see readStoredId */
+  }
+};
+
+const recomputeSampleTotals = (cart: SkCart) => {
+  cart.totalQuantity = cart.lines.reduce((n, l) => n + l.quantity, 0);
+  cart.subtotal = cart.lines.reduce((n, l) => n + l.quantity * l.price, 0);
+};
+
+function sampleCartAdd(variantId: string, quantity: number): SkCart | null {
+  for (const p of SAMPLE_CATALOG) {
+    const v = p.variants.find((x) => x.id === variantId);
+    if (!v) continue;
+    const cart = readSampleCart() ?? {
+      id: "sample-cart",
+      checkoutUrl: "",
+      totalQuantity: 0,
+      subtotal: 0,
+      currency: p.currency,
+      lines: [],
+    };
+    const existing = cart.lines.find((l) => l.variantId === variantId);
+    if (existing) existing.quantity += quantity;
+    else
+      cart.lines.push({
+        id: `sample-line:${variantId}`,
+        quantity,
+        variantId,
+        variantTitle: v.title,
+        productTitle: p.name,
+        handle: p.handle,
+        image: p.images[0]?.url ?? null,
+        price: v.price,
+        currency: p.currency,
+      });
+    recomputeSampleTotals(cart);
+    writeSampleCart(cart);
+    return cart;
+  }
+  return null;
+}
+
+function sampleCartSetQuantity(lineId: string, quantity: number): SkCart | null {
+  const cart = readSampleCart();
+  if (!cart) return null;
+  const line = cart.lines.find((l) => l.id === lineId);
+  if (line) {
+    if (quantity <= 0) cart.lines = cart.lines.filter((l) => l.id !== lineId);
+    else line.quantity = quantity;
+  }
+  recomputeSampleTotals(cart);
+  writeSampleCart(cart);
+  return cart;
+}
 
 type CartContextValue = {
   cart: SkCart | null;
@@ -69,7 +153,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // expire — is dropped quietly; the next add simply creates a fresh cart.
   useEffect(() => {
     const stored = readStoredId();
-    if (!stored) return;
+    if (!stored) {
+      // No Shopify cart to restore; a sample basket may still be waiting.
+      const sample = readSampleCart();
+      if (sample) setCart(sample);
+      return;
+    }
     let cancelled = false;
     fetchCart({ data: stored })
       .then((c) => {
@@ -89,6 +178,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const add = useCallback(async (variantId: string, quantity = 1) => {
     setBusy(true);
     setError(null);
+    if (isSampleVariant(variantId)) {
+      const next = sampleCartAdd(variantId, quantity);
+      setBusy(false);
+      if (!next) {
+        setError("We couldn't find that piece. Please refresh and try again.");
+        return false;
+      }
+      setCart(next);
+      setOpen(true);
+      return true;
+    }
     try {
       const next = await addToCart({
         data: { cartId: readStoredId(), variantId, quantity },
@@ -111,6 +211,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const setQuantity = useCallback(
     async (lineId: string, quantity: number) => {
+      if (isSampleLine(lineId)) {
+        setCart(sampleCartSetQuantity(lineId, quantity));
+        return;
+      }
       const id = cart?.id ?? readStoredId();
       if (!id) return;
       setBusy(true);

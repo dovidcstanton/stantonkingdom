@@ -63,32 +63,42 @@ function gallery(name: string, url: string, colors: MetalColor[], perColor = 2):
   ];
 }
 
-/** Variants for every (purity, colour) combination offered. Platinum is only
- *  ever paired with White Gold — the rule the selectors enforce is true of the
- *  data first. */
-function metalVariants(
+/** Variants for every (origin, purity, colour) combination offered. Platinum
+ *  is only ever paired with White Gold, and lab-grown stones price beneath
+ *  their natural counterparts — the rules the selectors enforce are true of
+ *  the data first. An empty origins list means the piece has no origin choice
+ *  and the axis simply never appears on it. */
+function configVariants(
   code: string,
   price: number,
+  origins: string[],
   purities: string[],
   colors: MetalColor[],
-  platinumPremium = 1.18,
 ): SkVariant[] {
   const out: SkVariant[] = [];
-  for (const purity of purities) {
-    const offered = purity === "Platinum" ? (["White Gold"] as MetalColor[]) : colors;
-    for (const color of offered) {
-      const id = `sample:${code}:${purity}:${color}`.replace(/\s+/g, "-").toLowerCase();
-      out.push({
-        id,
-        title: `${purity} / ${color}`,
-        available: true,
-        price: Math.round(purity === "Platinum" ? price * platinumPremium : price),
-        compareAt: null,
-        options: [
-          { name: "Metal", value: purity },
-          { name: "Metal Colour", value: color },
-        ],
-      });
+  const originAxis = origins.length ? origins : [null];
+  for (const origin of originAxis) {
+    for (const purity of purities) {
+      const offered = purity === "Platinum" ? (["White Gold"] as MetalColor[]) : colors;
+      for (const color of offered) {
+        const id = `sample:${code}:${origin ?? "na"}:${purity}:${color}`
+          .replace(/\s+/g, "-")
+          .toLowerCase();
+        out.push({
+          id,
+          title: [origin, purity, color].filter(Boolean).join(" / "),
+          available: true,
+          price: Math.round(
+            price * (purity === "Platinum" ? 1.18 : 1) * (origin === "Lab-Grown" ? 0.72 : 1),
+          ),
+          compareAt: null,
+          options: [
+            ...(origin ? [{ name: "Diamond Origin", value: origin }] : []),
+            { name: "Metal", value: purity },
+            { name: "Metal Colour", value: color },
+          ],
+        });
+      }
     }
   }
   return out;
@@ -101,9 +111,13 @@ type Sample = {
   category: string;
   type: string;
   style: string;
+  /** May carry several comma-separated shapes — a piece can belong to more
+   *  than one cut's filter. */
   shape: string;
   price: number;
   image: string;
+  /** Empty list = the piece offers no origin choice and draws no control. */
+  origins: string[];
   purities: string[];
   colors: MetalColor[];
   narrative: string;
@@ -122,6 +136,7 @@ const SAMPLES: Sample[] = [
     shape: "Round",
     price: 8900,
     image: IMG.solitaire,
+    origins: ["Natural", "Lab-Grown"],
     purities: ["14K Gold", "18K Gold", "Platinum"],
     colors: ["White Gold", "Yellow Gold", "Rose Gold"],
     narrative:
@@ -144,6 +159,7 @@ const SAMPLES: Sample[] = [
     shape: "Round",
     price: 3600,
     image: IMG.studs,
+    origins: ["Natural", "Lab-Grown"],
     purities: ["14K Gold", "18K Gold"],
     colors: ["White Gold", "Yellow Gold"],
     narrative:
@@ -162,9 +178,12 @@ const SAMPLES: Sample[] = [
     category: "Necklaces",
     type: "Riviera & Tennis",
     style: "Classic",
-    shape: "Round",
+    shape: "Cushion",
     price: 15600,
     image: IMG.riviera,
+    // No origin choice at all: the axis itself is absent from this piece and
+    // the control must not draw.
+    origins: [],
     purities: ["14K Gold", "18K Gold", "Platinum"],
     colors: ["White Gold", "Yellow Gold", "Rose Gold"],
     narrative:
@@ -184,9 +203,10 @@ const SAMPLES: Sample[] = [
     category: "Bracelets",
     type: "Tennis",
     style: "Classic",
-    shape: "Round",
+    shape: "Princess",
     price: 7800,
     image: IMG.tennis,
+    origins: ["Natural", "Lab-Grown"],
     purities: ["14K Gold", "18K Gold", "Platinum"],
     colors: ["White Gold", "Yellow Gold", "Rose Gold"],
     narrative:
@@ -206,9 +226,12 @@ const SAMPLES: Sample[] = [
     category: "Rings",
     type: "Engagement",
     style: "Trendsetting",
-    shape: "Oval",
+    // Offered in two silhouettes of the same design, so it answers both
+    // filters — multi-shape membership, one product, never duplicated.
+    shape: "Oval, Elongated Radiant",
     price: 11200,
     image: IMG.rings,
+    origins: ["Natural", "Lab-Grown"],
     purities: ["18K Gold", "Platinum"],
     colors: ["White Gold", "Rose Gold"],
     narrative:
@@ -230,6 +253,7 @@ const SAMPLES: Sample[] = [
     shape: "Pear",
     price: 4900,
     image: IMG.necklaces,
+    origins: ["Natural", "Lab-Grown"],
     purities: ["14K Gold", "18K Gold"],
     colors: ["White Gold", "Yellow Gold", "Rose Gold"],
     narrative:
@@ -251,6 +275,9 @@ const SAMPLES: Sample[] = [
     shape: "Emerald",
     price: 9400,
     image: IMG.bracelets,
+    // One fixed origin: a single-value axis is a fact, not a choice, so the
+    // control hides but the variant still carries the option.
+    origins: ["Natural"],
     purities: ["18K Gold"],
     colors: ["Yellow Gold", "Rose Gold"],
     narrative:
@@ -269,9 +296,10 @@ const SAMPLES: Sample[] = [
     category: "Earrings",
     type: "Drops & Chandeliers",
     style: "Vintage",
-    shape: "Marquise",
+    shape: "Marquise, Pear",
     price: 6700,
     image: IMG.earrings,
+    origins: ["Natural", "Lab-Grown"],
     purities: ["14K Gold", "18K Gold", "Platinum"],
     colors: ["White Gold", "Yellow Gold"],
     narrative:
@@ -286,7 +314,7 @@ const SAMPLES: Sample[] = [
 ];
 
 function toSampleProduct(s: Sample): SkProduct {
-  const variants = metalVariants(s.code, s.price, s.purities, s.colors);
+  const variants = configVariants(s.code, s.price, s.origins, s.purities, s.colors);
   return {
     id: `sample:${s.handle}`,
     handle: s.handle,
@@ -298,7 +326,9 @@ function toSampleProduct(s: Sample): SkProduct {
     type: s.type,
     style: s.style,
     shape: s.shape,
-    acquisition: "inquire",
+    // Basket-first, like the real launch pieces will be — the slice has to
+    // demonstrate Add to Basket end to end.
+    acquisition: "cart",
     code: s.code,
     details: s.details,
     price: Math.min(...variants.map((v) => v.price)),

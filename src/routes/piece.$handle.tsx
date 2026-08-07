@@ -5,14 +5,17 @@
  *  has to arrive complete, with its own title and preview image, not as an
  *  empty shell that fills in a moment later.
  *
+ *  The page reads top to bottom in one obvious order: gallery, name, price,
+ *  fully customizable, the three configuration controls, Add to Basket, a
+ *  small Inquire link, the made-to-order line, then the accordions.
+ *
  *  The gallery is one continuous horizontal rail — every photograph the piece
  *  owns, edge to edge, in a fixed promenade order: the signature shots first,
  *  then the White Gold group, Yellow, Rose. Native scroll-snap carries the
- *  touch physics; nothing is transform-driven, so a swipe has the operating
- *  system's own momentum. The colourway selection and the rail are two views
- *  of one state: choosing a swatch glides the rail to that group's first
- *  frame, and swiping into a group by hand moves the swatch — in both
- *  directions, without either fighting the other. */
+ *  touch physics. The colourway selection and the rail are two views of one
+ *  state: choosing a swatch glides the rail to that group's first frame, and
+ *  swiping into a group by hand moves the swatch — in both directions,
+ *  without either fighting the other. */
 
 import { useMemo, useRef, useState } from "react";
 import { Link, createFileRoute, notFound } from "@tanstack/react-router";
@@ -24,19 +27,19 @@ import {
   METAL_SWATCHES,
   cleanAlt,
   collectionPath,
+  configMatrix,
   galleryPlan,
   isMetalColorOption,
   isMetalOption,
-  metalMatrix,
+  isOriginOption,
   money,
+  needsCertification,
   type MetalColor,
   type SkProduct,
-  type SkVariant,
 } from "@/lib/catalog";
-import { whatsappForPiece } from "@/lib/social";
 import { useCart } from "@/lib/cart";
 import { InquiryDialog } from "@/components/InquiryDialog";
-import { SiteFooter } from "@/components/SiteFooter";
+import { PieceCard } from "@/components/PieceCard";
 
 export const Route = createFileRoute("/piece/$handle")({
   loader: async ({ params }) => {
@@ -65,22 +68,62 @@ export const Route = createFileRoute("/piece/$handle")({
   component: PiecePage,
 });
 
+/** A segmented control whose active background glides between the options
+ *  rather than jumping — one indicator element, moved by transform, sized by
+ *  the option count. */
+function GlideSeg({
+  label,
+  options,
+  value,
+  onSelect,
+  disabledOptions,
+}: {
+  label: string;
+  options: string[];
+  value: string | null;
+  onSelect: (v: string) => void;
+  disabledOptions?: Set<string>;
+}) {
+  const index = Math.max(0, options.indexOf(value ?? ""));
+  return (
+    <div className="cfg-row">
+      <span className="cfg-label">{label}</span>
+      <div
+        className="seg"
+        role="group"
+        aria-label={label}
+        style={{ ["--seg-n" as string]: options.length, ["--seg-i" as string]: index }}
+      >
+        <span className="seg-glide" aria-hidden="true" />
+        {options.map((o) => (
+          <button
+            key={o}
+            className={"seg-opt" + (value === o ? " on" : "")}
+            onClick={() => onSelect(o)}
+            disabled={disabledOptions?.has(o)}
+            aria-pressed={value === o}
+          >
+            {o}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function PiecePage() {
   const piece = Route.useLoaderData();
   const [inquiring, setInquiring] = useState(false);
 
-  const matrix = useMemo(() => metalMatrix(piece.variants), [piece.variants]);
-  const hasMetalAxes = matrix.purities.length > 0 || matrix.colors.length > 0;
+  const matrix = useMemo(() => configMatrix(piece.variants), [piece.variants]);
 
-  // ---- the one metal state both the rail and the selectors read ----
-  const [purity, setPurity] = useState<string | null>(() => {
-    const p = matrix.purities.find((pp) =>
-      matrix.colors.length ? matrix.colors.some((c) => matrix.has(pp, c)) : true,
-    );
-    return p ?? null;
-  });
+  // ---- one configuration state; every control reads and writes it ----
+  const [origin, setOrigin] = useState<string | null>(() => matrix.origins[0] ?? null);
+  const [purity, setPurity] = useState<string | null>(() => matrix.purities[0] ?? null);
   const [color, setColor] = useState<MetalColor | null>(() => {
-    const first = matrix.colors.find((c) => matrix.has(matrix.purities[0] ?? null, c));
+    const first = matrix.colors.find((c) =>
+      matrix.some({ purity: matrix.purities[0] ?? null, color: c }),
+    );
     return first ?? matrix.colors[0] ?? null;
   });
 
@@ -103,8 +146,8 @@ function PiecePage() {
    *  colour, and glide the rail — unless the choice CAME from the rail. */
   const selectColor = (c: MetalColor, fromRail = false) => {
     setColor(c);
-    if (purity && !matrix.has(purity, c)) {
-      setPurity(matrix.purities.find((p) => matrix.has(p, c)) ?? null);
+    if (purity && !matrix.some({ purity, color: c })) {
+      setPurity(matrix.purities.find((p) => matrix.some({ purity: p, color: c })) ?? null);
     }
     if (!fromRail) glideToColor(c);
   };
@@ -116,43 +159,39 @@ function PiecePage() {
     setPurity(p);
     if (p === "Platinum") {
       if (color !== "White Gold") selectColor("White Gold");
-    } else if (color && !matrix.has(p, color)) {
-      const c = matrix.colors.find((cc) => matrix.has(p, cc));
+    } else if (color && !matrix.some({ purity: p, color })) {
+      const c = matrix.colors.find((cc) => matrix.some({ purity: p, color: cc }));
       if (c) selectColor(c);
     }
   };
 
-  // The variant the current metal selection names. Non-metal axes (a ring
-  // size, say) are not part of this slice's selectors, so the first available
-  // variant matching the metal axes stands for the piece.
+  // The exact variant the three axes name. Each axis participates only when
+  // the product actually carries it, so legacy single-variant pieces resolve
+  // to their one variant untouched.
   const variant = useMemo(() => {
     const matches = piece.variants.filter((v) => {
+      const vo = v.options.find((o) => isOriginOption(o.name))?.value.trim() ?? null;
       const vp = v.options.find((o) => isMetalOption(o.name))?.value.trim() ?? null;
       const vc = v.options.find((o) => isMetalColorOption(o.name))?.value.trim() ?? null;
-      if (purity && vp !== purity) return false;
-      if (color && vc !== color) return false;
+      if (matrix.origins.length && origin && vo !== origin) return false;
+      if (matrix.purities.length && purity && vp !== purity) return false;
+      if (matrix.colors.length && color && vc !== color) return false;
       return true;
     });
     return matches.find((v) => v.available) ?? matches[0] ?? piece.variants[0];
-  }, [piece.variants, purity, color]);
+  }, [piece.variants, matrix, origin, purity, color]);
 
   const price = variant?.price ?? piece.price;
-  const fromPrice = piece.price;
   const canBuy = piece.acquisition === "cart" && !piece.soldOut && Boolean(variant?.available);
+  const certified = useMemo(() => needsCertification(piece), [piece]);
 
-  const whatsapp = () => {
-    const metal = [color, purity].filter(Boolean).join(" · ");
-    window.open(
-      whatsappForPiece({
-        name: piece.name,
-        code: piece.code,
-        metal: hasMetalAxes && metal ? metal : undefined,
-        url: window.location.href.split("#")[0],
-      }),
-      "_blank",
-      "noopener,noreferrer",
-    );
-  };
+  const platinumLocked = useMemo(
+    () =>
+      new Set<MetalColor>(
+        purity === "Platinum" ? matrix.colors.filter((c) => c !== "White Gold") : [],
+      ),
+    [purity, matrix.colors],
+  );
 
   return (
     <>
@@ -185,78 +224,78 @@ function PiecePage() {
             />
 
             <div className="piece-detail">
-              {piece.style ? <span className="eyebrow">{piece.style}</span> : null}
               <h1 className="serif piece-title">{piece.name}</h1>
 
               <div className="piece-price">
-                <span className="pp-now">
-                  {price !== fromPrice
-                    ? money(price, piece.currency)
-                    : `From ${money(fromPrice, piece.currency)}`}
-                </span>
+                <span className="pp-now">{money(price, piece.currency)}</span>
                 <span className="pp-custom">Fully customizable</span>
               </div>
 
-              {matrix.colors.length ? (
-                <div className="metal-colors" role="group" aria-label="Metal colour">
-                  {matrix.colors.map((c) => {
-                    const platinumLocked = purity === "Platinum" && c !== "White Gold";
-                    return (
-                      <button
-                        key={c}
-                        className={"mc-swatch" + (color === c ? " sel" : "")}
-                        style={{ background: METAL_SWATCHES[c.toLowerCase()] }}
-                        onClick={() => selectColor(c)}
-                        disabled={platinumLocked}
-                        aria-pressed={color === c}
-                        aria-label={c + (platinumLocked ? " (not offered in platinum)" : "")}
-                        title={c}
-                      />
-                    );
-                  })}
-                  {color ? <span className="mc-name">{color}</span> : null}
-                </div>
-              ) : null}
+              <div className="piece-config">
+                {matrix.origins.length > 1 ? (
+                  <GlideSeg
+                    label="Diamond origin"
+                    options={matrix.origins}
+                    value={origin}
+                    onSelect={setOrigin}
+                  />
+                ) : null}
 
-              {matrix.purities.length ? (
-                <div className="metal-purity" role="group" aria-label="Metal">
-                  <span className="mp-label">Metal</span>
-                  <div className="mp-seg">
-                    {matrix.purities.map((p) => (
-                      <button
-                        key={p}
-                        className={"mp-opt" + (purity === p ? " sel" : "")}
-                        onClick={() => selectPurity(p)}
-                        aria-pressed={purity === p}
-                      >
-                        {p}
-                      </button>
-                    ))}
+                {matrix.colors.length ? (
+                  <div className="cfg-row">
+                    <span className="cfg-label">Metal colour</span>
+                    <div className="metal-colors" role="group" aria-label="Metal colour">
+                      {matrix.colors.map((c) => (
+                        <button
+                          key={c}
+                          className={"mc-swatch" + (color === c ? " sel" : "")}
+                          style={{ background: METAL_SWATCHES[c.toLowerCase()] }}
+                          onClick={() => selectColor(c)}
+                          disabled={platinumLocked.has(c)}
+                          aria-pressed={color === c}
+                          aria-label={
+                            c + (platinumLocked.has(c) ? " (not offered in platinum)" : "")
+                          }
+                          title={c}
+                        />
+                      ))}
+                      {color ? <span className="mc-name">{color}</span> : null}
+                    </div>
+                    {purity === "Platinum" ? (
+                      <p className="cfg-note">Platinum is offered in its natural white.</p>
+                    ) : null}
                   </div>
-                </div>
-              ) : null}
+                ) : null}
 
-              <div className="piece-actions">
-                <button className="btn btn-solid btn-wa" onClick={whatsapp}>
-                  Enquire via WhatsApp
-                </button>
-                {canBuy ? <BuyButton variant={variant} /> : null}
-                <button className="pa-quiet" onClick={() => setInquiring(true)}>
-                  Prefer email? Write to us instead
-                </button>
+                {matrix.purities.length > 1 ? (
+                  <GlideSeg
+                    label="Metal"
+                    options={matrix.purities}
+                    value={purity}
+                    onSelect={selectPurity}
+                  />
+                ) : null}
               </div>
 
-              <PieceAccordions piece={piece} />
+              <Actions
+                piece={piece}
+                variantId={variant?.id}
+                canBuy={canBuy}
+                onInquire={() => setInquiring(true)}
+              />
 
-              <Assurance />
+              <p className="made-line">
+                Made to order • typically 3–4 weeks. More extensive customizations may require
+                additional time.
+              </p>
+
+              <PieceAccordions piece={piece} certified={certified} />
             </div>
           </div>
 
           <RelatedPieces piece={piece} />
         </div>
       </main>
-
-      <SiteFooter />
 
       {inquiring ? <InquiryDialog piece={piece} onClose={() => setInquiring(false)} /> : null}
     </>
@@ -265,8 +304,10 @@ function PiecePage() {
 
 /** The continuous showroom rail. Pure scroll-snap: each slide is exactly one
  *  viewport of the gallery wide, the images touch, and the browser owns the
- *  physics. The active index is read back off the scroll position itself, so
- *  the indicators and the colourway can never drift from what the eye sees. */
+ *  physics. Every frame is eagerly loaded — a lazy image arriving mid-swipe
+ *  is exactly the white flash the rail must never show. The active index is
+ *  read back off the scroll position itself, so the indicators and the
+ *  colourway can never drift from what the eye sees. */
 function Rail({
   piece,
   plan,
@@ -302,7 +343,7 @@ function Rail({
   if (!plan.slides.length) {
     return (
       <div className="piece-gallery">
-        <div className="pg-main">
+        <div className="pg-main rail-main">
           <div className="pg-none" aria-label="Photography to follow" />
           {piece.soldOut ? <span className="pg-flag">Acquired</span> : null}
         </div>
@@ -322,7 +363,8 @@ function Rail({
                 width={img.width ?? undefined}
                 height={img.height ?? undefined}
                 className={img.tint ? `rail-tint-${img.tint}` : undefined}
-                loading={i === 0 ? "eager" : "lazy"}
+                loading="eager"
+                decoding="async"
                 draggable={false}
               />
               {color ? <span className="rail-caption">{color}</span> : null}
@@ -337,7 +379,7 @@ function Rail({
           {plan.slides.map(({ color }, i) => (
             <button
               key={i}
-              className={"rail-dot" + (i === active ? " on" : "") + (color ? "" : " sig")}
+              className={"rail-dot" + (i === active ? " on" : "")}
               onClick={() => {
                 const el = trackRef.current;
                 if (!el) return;
@@ -355,32 +397,95 @@ function Rail({
   );
 }
 
-/** Description first — the piece's narrative, closed by the house's
- *  manufacturing line — then the factual specification. Radix carries the
- *  keyboard and ARIA work; the styling keeps it to thin rules and one quiet
- *  chevron. */
-function PieceAccordions({ piece }: { piece: SkProduct }) {
+function Actions({
+  piece,
+  variantId,
+  canBuy,
+  onInquire,
+}: {
+  piece: SkProduct;
+  variantId: string | undefined;
+  canBuy: boolean;
+  onInquire: () => void;
+}) {
+  const { add, busy } = useCart();
+  const [failed, setFailed] = useState(false);
+
+  if (piece.soldOut) {
+    return (
+      <div className="piece-actions">
+        <button className="btn btn-solid" disabled>
+          Acquired
+        </button>
+        <button className="pa-inquire" onClick={onInquire}>
+          Inquire
+        </button>
+      </div>
+    );
+  }
+
+  if (!canBuy || !variantId) {
+    return (
+      <div className="piece-actions">
+        <button className="btn btn-solid" onClick={onInquire}>
+          Enquire About This Piece
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="piece-actions">
+      <button
+        className="btn btn-solid"
+        disabled={busy}
+        onClick={async () => {
+          const ok = await add(variantId, 1);
+          setFailed(!ok);
+        }}
+      >
+        {busy ? "Adding…" : "Add to Basket"}
+      </button>
+      <button className="pa-inquire" onClick={onInquire}>
+        Inquire
+      </button>
+      {failed ? (
+        <p className="piece-action-note err">
+          That didn't go through. Please try again, or write to{" "}
+          <a href="mailto:sales@stantonkingdom.com">sales@stantonkingdom.com</a>.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Description, the factual specification, and — when the stones warrant it —
+ *  certification. No rule between an open heading and its content: the
+ *  heading and the text read as one continuous section, and only whole
+ *  sections are separated. */
+function PieceAccordions({ piece, certified }: { piece: SkProduct; certified: boolean }) {
   const rows: [string, string][] = [
     ...piece.details,
     ...(piece.code ? ([["Product code", piece.code]] as [string, string][]) : []),
   ];
 
+  const chev = (
+    <svg className="pacc-chev" viewBox="0 0 12 8" aria-hidden="true">
+      <path
+        d="M1 1.5 6 6.5 11 1.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+
   return (
     <Accordion.Root type="multiple" defaultValue={["desc"]} className="pacc">
       <Accordion.Item value="desc" className="pacc-item">
         <Accordion.Header className="pacc-head">
-          <Accordion.Trigger className="pacc-trigger">
-            Description
-            <svg className="pacc-chev" viewBox="0 0 12 8" aria-hidden="true">
-              <path
-                d="M1 1.5 6 6.5 11 1.5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-              />
-            </svg>
-          </Accordion.Trigger>
+          <Accordion.Trigger className="pacc-trigger">Description {chev}</Accordion.Trigger>
         </Accordion.Header>
         <Accordion.Content className="pacc-content">
           <div className="pacc-inner">
@@ -392,10 +497,6 @@ function PieceAccordions({ piece }: { piece: SkProduct }) {
                 dangerouslySetInnerHTML={{ __html: piece.descriptionHtml }}
               />
             ) : null}
-            <p className="pacc-made">
-              Made to order • typically 3–4 weeks. More extensive customizations may require
-              additional time.
-            </p>
           </div>
         </Accordion.Content>
       </Accordion.Item>
@@ -403,18 +504,7 @@ function PieceAccordions({ piece }: { piece: SkProduct }) {
       {rows.length ? (
         <Accordion.Item value="details" className="pacc-item">
           <Accordion.Header className="pacc-head">
-            <Accordion.Trigger className="pacc-trigger">
-              Product Details
-              <svg className="pacc-chev" viewBox="0 0 12 8" aria-hidden="true">
-                <path
-                  d="M1 1.5 6 6.5 11 1.5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.4"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </Accordion.Trigger>
+            <Accordion.Trigger className="pacc-trigger">Product Details {chev}</Accordion.Trigger>
           </Accordion.Header>
           <Accordion.Content className="pacc-content">
             <div className="pacc-inner">
@@ -430,65 +520,36 @@ function PieceAccordions({ piece }: { piece: SkProduct }) {
           </Accordion.Content>
         </Accordion.Item>
       ) : null}
+
+      {certified ? (
+        <Accordion.Item value="cert" className="pacc-item">
+          <Accordion.Header className="pacc-head">
+            <Accordion.Trigger className="pacc-trigger">Certification {chev}</Accordion.Trigger>
+          </Accordion.Header>
+          <Accordion.Content className="pacc-content">
+            <div className="pacc-inner">
+              <p className="pacc-cert">
+                Diamonds over 1.00 carat are typically accompanied by a GIA or IGI grading report.
+              </p>
+            </div>
+          </Accordion.Content>
+        </Accordion.Item>
+      ) : null}
     </Accordion.Root>
   );
 }
 
-function BuyButton({ variant }: { variant: SkVariant | undefined }) {
-  const { add, busy } = useCart();
-  const [failed, setFailed] = useState(false);
-  if (!variant) return null;
-  return (
-    <>
-      <button
-        className="btn btn-ghost-d"
-        disabled={busy}
-        onClick={async () => {
-          const ok = await add(variant.id, 1);
-          setFailed(!ok);
-        }}
-      >
-        {busy ? "Adding…" : "Add to Selection"}
-      </button>
-      {failed ? (
-        <p className="piece-action-note err">
-          That didn't go through. Please try again, or write to{" "}
-          <a href="mailto:sales@stantonkingdom.com">sales@stantonkingdom.com</a>.
-        </p>
-      ) : null}
-    </>
-  );
-}
-
-function Assurance() {
-  const points = [
-    ["Certification", "Every stone above 0.50ct ships with its independent laboratory report."],
-    ["Insured Delivery", "Fully insured, signature-required, worldwide."],
-    [
-      "Lifetime Care",
-      "Complimentary cleaning, inspection and re-polishing, for as long as you own it.",
-    ],
-  ];
-  return (
-    <ul className="piece-assure">
-      {points.map(([k, v]) => (
-        <li key={k}>
-          <span className="pa-k">{k}</span>
-          <span className="pa-v">{v}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/** Other pieces from the same collection. Silent when there are none, rather
- *  than showing an empty rail with a heading over it. */
+/** Other pieces from the same collection, in the catalogue's own card
+ *  language. Silent when there are none, rather than an empty rail with a
+ *  heading over it. */
 function RelatedPieces({ piece }: { piece: SkProduct }) {
   const { data } = useQuery({
     queryKey: ["catalog"],
     queryFn: () => fetchCatalog(),
     staleTime: 5 * 60 * 1000,
   });
+
+  const [inquiring, setInquiring] = useState<SkProduct | null>(null);
 
   const related = (data?.products ?? [])
     .filter((p) => p.id !== piece.id && p.category === piece.category)
@@ -504,24 +565,12 @@ function RelatedPieces({ piece }: { piece: SkProduct }) {
           <h2 className="serif">Also In This Collection</h2>
         </div>
       </div>
-      <div className="cat-grid">
+      <div className="cat-flow cat-compact related-flow">
         {related.map((p) => (
-          <Link key={p.id} to="/piece/$handle" params={{ handle: p.handle }} className="p-card">
-            <div className="p-img">
-              <div
-                style={p.images[0] ? { backgroundImage: `url('${p.images[0].url}')` } : undefined}
-              />
-            </div>
-            <div className="p-body">
-              <h3>{p.name}</h3>
-              {p.shape || p.style ? (
-                <div className="p-spec">{[p.shape, p.style].filter(Boolean).join(" · ")}</div>
-              ) : null}
-              <div className="p-price">{money(p.price, p.currency)}</div>
-            </div>
-          </Link>
+          <PieceCard key={p.id} piece={p} onInquire={setInquiring} />
         ))}
       </div>
+      {inquiring ? <InquiryDialog piece={inquiring} onClose={() => setInquiring(null)} /> : null}
     </section>
   );
 }
