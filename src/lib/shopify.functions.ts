@@ -22,7 +22,7 @@ import { SAMPLE_CATALOG, sampleByHandle } from "./sample-catalog";
  *  on the dev Worker and in local .dev.vars, never on production, so a
  *  production credential mishap degrades to an empty catalogue exactly as it
  *  does today rather than quietly exhibiting sample pieces. */
-const sampleMode = () => process.env.SK_SAMPLE_CATALOG === "1";
+const sampleMode = () => (process.env.SK_SAMPLE_CATALOG ?? "").trim() === "1";
 
 const API_VERSION = "2025-01";
 
